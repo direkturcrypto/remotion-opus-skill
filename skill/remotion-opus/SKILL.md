@@ -1,0 +1,104 @@
+---
+name: remotion-opus
+description: "Make premium 15-second launch / promo videos (landscape 1920x1080 + portrait 1080x1920, Remotion) with cheap models on the Vikey API. A builder model (GLM-5.3 Flash or DeepSeek V4 Flash) writes a JSON spec, a fixed Opus-designed motion engine renders it, and Claude Opus 5.5 reviews rendered frames until the video passes. Use for model/product launches, price-drop announcements and feature promos."
+version: 0.1.0
+author: direkturcrypto
+license: MIT
+platforms: [macos, linux]
+metadata:
+  hermes:
+    tags: [video, remotion, motion-graphics, promo, launch, vikey]
+prerequisites:
+  commands: [node, npm, ffmpeg, ffprobe, git]
+---
+
+# remotion-opus — Opus-grade launch videos from cheap models
+
+You drive the `ros` CLI from https://github.com/direkturcrypto/remotion-opus-skill. You never write React or
+animation code for a video: the engine already owns camera, depth-of-field, kinetic type, easing, captions, SFX and
+both aspect ratios. Quality comes from three things you control: **the brief, the facts, and following the loop.**
+
+## 0. Setup (once)
+
+```bash
+git clone https://github.com/direkturcrypto/remotion-opus-skill.git && cd remotion-opus-skill
+npm install
+node bin/ros.mjs init        # creates .env, synthesizes SFX, checks ffmpeg
+# edit .env: VIKEY_API_KEY=vk-…  (VIKEY_BASE_URL=https://api.vikey.ai/v1)
+#            ELEVENLABS_API_KEY=…  (optional — voice-over eleven_v4 + music; without it: captions + SFX only)
+node bin/ros.mjs doctor      # must show builder + verifier "✓ available"
+```
+
+`ros` below means `node bin/ros.mjs` run from the repo root.
+
+## 1. Gather facts BEFORE anything else
+
+Every number on screen (price, %, context size, version, benchmark) must be in `facts.md` with its source and
+date — the linter rejects any on-screen number that is not in the facts. Read the official pages yourself
+(pricing pages are often JS-rendered: use a browser tool, not a plain fetch). Write down what NOT to claim
+(e.g. "official cache is cheaper — no cache discount"). Never claim "forever/selamanya", "unlimited", "fastest"
+unless a source says so.
+
+## 2. Create the project
+
+```bash
+ros new <slug> --brief "<what launches, for whom, the ONE message, required CTA line, language, brand + colour>"
+# then edit projects/<slug>/facts.md (bullets: fact — source, date)
+```
+
+A good brief names: the product, the audience/angle, the single takeaway, the exact CTA if the client wants one
+(e.g. must end with "pakai Vikey!"), language for VO and captions, brand name/url/colour, and things to avoid
+(e.g. "no Xiaomi logo, model name as text").
+
+## 3. Run the loop
+
+```bash
+ros run <slug>     # plan (builder) → audio → review rounds (stills → Opus verify → fix) → render
+```
+
+Or step by step when you want control:
+
+```bash
+ros plan <slug>      # builder writes projects/<slug>/spec.json (auto-retries until the linter passes)
+ros lint <slug>      # schema + facts + cue + pacing + look-variety checks
+ros audio <slug>     # ElevenLabs eleven_v4 VO (+ STT word timings) and music; SFX always
+ros review <slug>    # up to MAX_ROUNDS of stills → Opus review → patch/fix
+ros render <slug>    # MP4s in projects/<slug>/out/ + automatic frame-jump scan
+```
+
+## 4. Read the results — don't just trust the exit code
+
+- `projects/<slug>/review/round-N/review.md` — Opus's verdict, score, issues. `sheet-L.jpg` / `sheet-P.jpg` are
+  contact sheets of the frames it saw. Look at them yourself if your agent can see images.
+- `ros render` prints "unexpected frame jump(s)" with frame numbers if something pops — render a still at that
+  frame (`ros stills`) and look.
+- VO: `ros audio` warns when STT didn't hear the brand name (TTS mispronounced it). Re-take one line with
+  `ros audio <slug> --only m04 --force`, or rewrite the line so the brand ends the sentence.
+- `ros usage <slug>` — tokens per model (the builder does the heavy writing; Opus only sees frames).
+
+## 5. Editing a finished spec by hand
+
+`spec.json` is the single source of truth. Allowed edits: copy, cue words, `look.preset`, `path`, `camera.zoom`,
+`camera.moves`, `punches`, widget fields. After any edit: `ros lint <slug>` then `ros review <slug> --rounds 1`.
+Widget catalog and limits: `prompts/builder.md`. Cue format: `"m02:gambar"` = the moment the word "gambar" is
+spoken in VO line m02 (use words from the spoken `text`, not the caption).
+
+## Rules
+
+- Don't edit `src/engine` or `src/widgets` to fix one video — fix the spec. Engine changes are for everyone and
+  need a full re-test of `ros example` + `ros render mimo-example`.
+- Don't reuse the previous video's `look.preset` (enforced) or its wording — consecutive videos must not look
+  like reskins.
+- Portrait and landscape always ship together.
+- If the review keeps failing on the same issue after 3 rounds, stop and report the issue + the contact sheet
+  to the user instead of looping.
+
+## Troubleshooting
+
+| symptom | fix |
+| --- | --- |
+| `model … not available` | check `ros doctor`; set `BUILDER_MODEL` / `VERIFIER_MODEL` in `.env` to ids from Vikey `/v1/models` |
+| builder keeps failing lint | read the errors — usually an invented number (add the fact or drop the claim) or a cue word that isn't spoken |
+| text cut off / overlapping | the verifier usually patches it; otherwise shorten the text (limits in `prompts/builder.md`) |
+| no voice in the MP4 | `ELEVENLABS_API_KEY` missing, or `projects/<slug>/public/vo/*.mp3` incomplete → `ros audio <slug> --force` |
+| first render slow | Remotion downloads Chrome Headless Shell once (~90 MB) |

@@ -1,0 +1,127 @@
+# remotion-opus-skill
+
+**Opus-grade launch videos from cheap models.** A CLI + agent skill that lets a fast, cheap model
+(`glm/glm-5.3-flash`, `deepseek/deepseek-v4-flash`) produce premium 15-second promo videos in Remotion — landscape
+1920×1080 and portrait 1080×1920 from one timeline — with `anthropic/claude-opus-5.5` used only as a vision
+reviewer. Everything runs on the [Vikey](https://vikey.ai) OpenAI-compatible API (`https://api.vikey.ai/v1`).
+
+```
+brief.md + facts.md
+      │
+      ▼
+ ros plan ──► builder model (GLM-5.3 Flash) writes spec.json ──► linter (schema, facts, cues, pacing, variety)
+      │                                   ▲                              │ errors go back to the builder
+      ▼                                   └──────────────────────────────┘
+ ros audio ──► ElevenLabs eleven_v4 VO (multi-take, STT-checked) + word timings, music, synthesized SFX
+      │
+      ▼
+ ros review ─► render stills (both aspects) + DOM QA ──► Opus 5.5 looks at the frames ──► JSON verdict
+      │              ▲                                                                     │ patches / builder fix
+      │              └─────────────────────────────────────────────────────────────────────┘
+      ▼
+ ros render ─► MP4 × 2 + frame-jump scan
+```
+
+## Why the output looks like Opus made it
+
+Cheap models are bad at motion design but fine at filling in a form. So they never write animation code here:
+
+- **The engine is fixed and Opus-designed** (`src/engine`, `src/widgets`): a 2.5D camera that flies through a 3D
+  world, arcs around cards instead of punching through them, lens depth-of-field + semantic focus that follows the
+  voice-over, kinetic mask-reveal type, slot-roll odometers, eased zoom punches (never single-frame steps), measured
+  text fitting (no "text nabrak"), always-on filters (no re-raster pops), captions with word highlight, and
+  automatic hits/SFX. Ported from hand-built Vikey launch spots.
+- **The builder only writes a JSON spec** (`src/spec/schema.ts`) with tight text limits. A linter rejects invented
+  numbers (every on-screen number must be in `facts.md`), cues that aren't spoken, digits in TTS text, CamelCase
+  that TTS mangles, over-long VO, reused looks, and copy lifted from the reference.
+- **Opus is the art director**: it sees labelled frames from both aspects plus automated QA warnings, and returns
+  JSON-Patch fixes. Only frames go to Opus, so a review round costs a few thousand tokens.
+- **Six art directions** (`graphite-studio`, `midnight-glass`, `paper-ink`, `aurora-soft`, `mono-lab`,
+  `ember-noir`) × three camera paths × widget mixes. The last two looks are blocked so consecutive videos don't
+  look like reskins.
+
+## Quick start
+
+```bash
+git clone https://github.com/direkturcrypto/remotion-opus-skill.git && cd remotion-opus-skill
+npm install
+node bin/ros.mjs init          # .env + SFX + tool check
+$EDITOR .env                   # VIKEY_API_KEY (required), ELEVENLABS_API_KEY (optional, for voice + music)
+node bin/ros.mjs doctor
+
+node bin/ros.mjs example                 # reference project (hand-built MiMo-V2.6 Pro spot)
+node bin/ros.mjs render mimo-example     # silent render of the reference to check your setup
+
+node bin/ros.mjs new my-launch --brief "…"
+$EDITOR projects/my-launch/facts.md      # sourced facts — the only numbers allowed on screen
+node bin/ros.mjs run my-launch           # → projects/my-launch/out/my-launch-{landscape,portrait}.mp4
+```
+
+`npm link` (or `npx ros`) puts `ros` on your PATH.
+
+## Commands
+
+| command | what it does |
+| --- | --- |
+| `ros init` / `ros doctor` | setup and health check (keys, models, ffmpeg) |
+| `ros new <slug> --brief "…"` | scaffold `projects/<slug>/brief.md` + `facts.md` |
+| `ros plan <slug>` | builder writes `spec.json`, retrying until the linter passes |
+| `ros lint <slug>` | run the linter on a spec you edited |
+| `ros audio <slug> [--only m02] [--force]` | VO (ElevenLabs `eleven_v4`, best of 3 takes by STT match) + music + SFX |
+| `ros stills <slug>` / `ros verify <slug>` / `ros fix <slug>` | one review step at a time |
+| `ros review <slug> [--rounds 3]` | stills → verify → fix until it passes |
+| `ros render <slug> [--aspect portrait]` | final MP4s + frame-jump scan |
+| `ros run <slug>` | all of the above |
+| `ros usage <slug>` | tokens per model |
+
+## Configuration (`.env`)
+
+| key | default | |
+| --- | --- | --- |
+| `VIKEY_API_KEY` | — | required |
+| `VIKEY_BASE_URL` | `https://api.vikey.ai/v1` | any OpenAI-compatible endpoint works |
+| `BUILDER_MODEL` | `glm/glm-5.3-flash` | or `deepseek/deepseek-v4-flash` |
+| `VERIFIER_MODEL` | `anthropic/claude-opus-5.5` | must accept images |
+| `MAX_ROUNDS` | `3` | review rounds |
+| `ELEVENLABS_API_KEY` | — | voice-over + word timing + music |
+| `VOICE_ID` / `TTS_MODEL` | Cahaya / `eleven_v4` | per-spec `vo.voiceId` overrides |
+| `VO_TAKES` | `3` | TTS takes per line, best STT match wins |
+| `LLM_STREAM` | `1` | stream completions (SSE) with a live progress line; `0` to disable |
+
+## For agents
+
+`skill/remotion-opus/SKILL.md` is a standard agent skill (Hermes / Claude Code / agentskills.io format).
+
+```bash
+# Hermes
+mkdir -p ~/.hermes/skills/creative && cp -r skill/remotion-opus ~/.hermes/skills/creative/
+# Claude Code (project or user level)
+mkdir -p ~/.claude/skills && cp -r skill/remotion-opus ~/.claude/skills/
+```
+
+Point your agent at Vikey (`base_url https://api.vikey.ai/v1`, any model), give it the repo path, and ask for a
+launch video — the skill tells it to gather facts first, run the loop, and read the review reports.
+
+## Layout
+
+```
+bin/ros.mjs            CLI launcher (tsx, no build step)
+cli/                   pipeline: llm client, linter, audio, render, review loop
+prompts/builder.md     the builder's rules + widget catalog (+ the reference spec is appended)
+prompts/verifier.md    Opus' review rubric and JSON output contract
+src/spec/schema.ts     the spec contract (zod) — what a builder may write
+src/engine/            director (layout, camera, arcs, focus), world, timeline, looks, fonts, fit
+src/widgets/           hero, stat, vision, code, price, agents, lockup, headline, chat, bars, checklist
+examples/mimo-v2.6-pro reference spec + word timings from a hand-built Vikey launch spot
+projects/<slug>/       your videos (gitignored)
+```
+
+## Honesty rules baked in
+
+On-screen numbers must come from `facts.md`; price beats need fine print naming sources, unit, date and FX basis;
+"forever/unlimited/zero refusal"-style claims are rejected unless the facts say so. The verifier checks the
+rendered frames against the facts again.
+
+## License
+
+MIT

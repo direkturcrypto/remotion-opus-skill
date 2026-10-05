@@ -1,0 +1,8 @@
+node_modules/
+.env
+projects/
+out/
+.scratch/
+assets/sfx/
+*.log
+.DS_Store

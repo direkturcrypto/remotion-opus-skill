@@ -1,0 +1,270 @@
+{
+ "version": 1,
+ "slug": "mimo-v2-6-pro",
+ "title": "Xiaomi MiMo-V2.6 Pro di Vikey — hemat ±54%",
+ "language": "id",
+ "fps": 60,
+ "holdSec": 2.2,
+ "brand": {
+  "name": "Vikey",
+  "url": "vikey.ai",
+  "mark": "vikey",
+  "color": "#E7010A"
+ },
+ "look": {
+  "preset": "graphite-studio"
+ },
+ "path": "dolly",
+ "vo": {
+  "voiceId": "iWydkXKoiVtvdn4vLKp9",
+  "tempo": 1.12,
+  "lines": [
+   {
+    "id": "m01",
+    "text": "Model baru! Xiaomi Mimo dua koma enam Pro.",
+    "tts": "[excited] Model baru! [confident] Xiaomi Mimo dua koma enam Pro.",
+    "caption": "Model baru! Xiaomi MiMo-V2.6 Pro."
+   },
+   {
+    "id": "m02",
+    "text": "Sejuta token konteks, baca gambar, jago ngoding.",
+    "tts": "[confident] Sejuta token konteks, baca gambar, jago ngoding.",
+    "caption": "Sejuta token konteks, baca gambar, jago ngoding."
+   },
+   {
+    "id": "m03",
+    "text": "Harganya? Dipangkas lima puluh empat persen.",
+    "tts": "[playful] Harganya? Dipangkas lima puluh empat persen.",
+    "caption": "Harganya? Dipangkas 54%!"
+   },
+   {
+    "id": "m04",
+    "text": "Pecut agen-mu, pakai Vikey!",
+    "tts": "[excited] Pecut agen-mu, pakai Vikey!",
+    "caption": "Pecut agen-mu, pakai Vikey!"
+   }
+  ]
+ },
+ "beats": [
+  {
+   "id": "hero",
+   "at": "m01",
+   "camera": {
+    "open": "closeup",
+    "revealAt": "m01:xiaomi"
+   },
+   "widget": {
+    "type": "hero",
+    "badge": "MODEL BARU",
+    "kicker": "XIAOMI",
+    "kickerAt": "m01:xiaomi",
+    "name": [
+     {
+      "text": "MiMo",
+      "at": "m01:mimo"
+     },
+     {
+      "text": "-V2",
+      "at": "m01:dua"
+     },
+     {
+      "text": ".",
+      "at": "m01:koma"
+     },
+     {
+      "text": "6",
+      "at": "m01:enam"
+     }
+    ],
+    "accentWord": {
+     "text": "Pro",
+     "at": "m01:pro"
+    },
+    "id": "xiaomi/mimo-v2.6-pro",
+    "status": "Tersedia sekarang di Vikey"
+   }
+  },
+  {
+   "id": "context",
+   "at": "m02:sejuta",
+   "group": "caps",
+   "widget": {
+    "type": "stat",
+    "label": "KONTEKS",
+    "chip": "1M token",
+    "value": 1000000,
+    "caption": "token konteks dalam satu permintaan",
+    "from": "m02:sejuta",
+    "to": "m02:konteks",
+    "chips": [
+     "repo/",
+     "spek.pdf",
+     "chat.log"
+    ]
+   }
+  },
+  {
+   "id": "vision",
+   "at": "m02:baca",
+   "group": "caps",
+   "widget": {
+    "type": "vision",
+    "label": "VISION",
+    "chip": "baca gambar",
+    "scene": "dashboard",
+    "scanFrom": "m02:baca",
+    "scanTo": "m02:gambar",
+    "detect": [
+     "judul",
+     "grafik",
+     "tombol"
+    ],
+    "result": "▸ 3 elemen terbaca"
+   }
+  },
+  {
+   "id": "coding",
+   "at": "m02:jago",
+   "group": "caps",
+   "widget": {
+    "type": "code",
+    "label": "CODING",
+    "chip": "jago ngoding",
+    "lines": [
+     "async function ship(app) {",
+     "  const ok = await test(app)",
+     "  if (!ok) await fix(app)",
+     "  return deploy(app)",
+     "}"
+    ],
+    "from": "m02:jago",
+    "done": "semua tes lulus",
+    "doneAt": "m02:ngoding"
+   }
+  },
+  {
+   "id": "price",
+   "at": "m03:harga",
+   "camera": {
+    "moves": [
+     {
+      "at": "m03:pangkas",
+      "zoom": 0.97,
+      "dx": 90,
+      "dy": 20
+     },
+     {
+      "at": "m03:lima",
+      "zoom": 0.94,
+      "dx": 130
+     }
+    ]
+   },
+   "widget": {
+    "type": "price",
+    "title": "HARGA / 1 JUTA TOKEN",
+    "idLabel": "xiaomi/mimo-v2.6-pro",
+    "officialLabel": "HARGA RESMI",
+    "oursLabel": "VIKEY",
+    "rows": [
+     {
+      "label": "Input",
+      "sub": "cache miss",
+      "official": "≈Rp7.830",
+      "officialSub": "$0,435",
+      "ours": "Rp3.600"
+     },
+     {
+      "label": "Output",
+      "official": "≈Rp15.660",
+      "officialSub": "$0,87",
+      "ours": "Rp7.200"
+     }
+    ],
+    "cutAt": "m03:pangkas",
+    "badge": {
+     "top": "HEMAT",
+     "value": "±54%",
+     "at": "m03:lima",
+     "ring": 0.54
+    },
+    "finePrint": "Per 1 juta token. Resmi: mimo.mi.com, API overseas pay-as-you-go (update 22 Sep 2026), input = cache miss. Kurs ±Rp18.000/USD. Vikey: vikey.ai/pricing, 5 Okt 2026."
+   }
+  },
+  {
+   "id": "agents",
+   "at": "m04",
+   "widget": {
+    "type": "agents",
+    "headline": [
+     {
+      "text": "Pecut",
+      "at": "m04:pecut"
+     },
+     {
+      "text": "agen-mu.",
+      "at": "m04:agen",
+      "accent": true
+     }
+    ],
+    "items": [
+     {
+      "name": "hermes",
+      "task": "riset harga kompetitor"
+     },
+     {
+      "name": "opencode",
+      "task": "refactor modul auth"
+     },
+     {
+      "name": "claude code",
+      "task": "perbaiki tes yang gagal"
+     },
+     {
+      "name": "codex cli",
+      "task": "tulis endpoint baru"
+     }
+    ],
+    "meta": "xiaomi/mimo-v2.6-pro",
+    "goAt": "m04:pecut",
+    "effect": "whip"
+   }
+  },
+  {
+   "id": "lockup",
+   "at": "m04:pakai",
+   "widget": {
+    "type": "lockup",
+    "wordmark": "vikey.ai",
+    "chips": [
+     {
+      "text": "xiaomi/mimo-v2.6-pro",
+      "style": "dark"
+     },
+     {
+      "text": "Hemat ±54% vs harga resmi",
+      "style": "accent"
+     }
+    ],
+    "cta": "Pakai sekarang",
+    "finePrint": "Per 1 juta token. Resmi: mimo.mi.com, API overseas pay-as-you-go (update 22 Sep 2026), input = cache miss. Kurs ±Rp18.000/USD. Vikey: vikey.ai/pricing, 5 Okt 2026.",
+    "logoAt": "m04:vik",
+    "stack": true
+   }
+  }
+ ],
+ "facts": [
+  {
+   "text": "Vikey xiaomi/mimo-v2.6-pro: Rp3.600 input / Rp7.200 output per 1M token; 1M context; chat, coding, vision",
+   "source": "vikey.ai/pricing (5 Okt 2026)"
+  },
+  {
+   "text": "Official MiMo-V2.6 Pro overseas pay-as-you-go: $0.435 input (cache miss) / $0.87 output per 1M token (≈Rp7.830 / Rp15.660 at Rp18.000/USD) → hemat ±54%",
+   "source": "mimo.mi.com/docs/en-US/price/pay-as-you-go (updated 22 Sep 2026)"
+  },
+  {
+   "text": "Do not claim a cache discount: official cache hit $0.0036 is cheaper than Vikey cache read Rp720",
+   "source": "same two pages"
+  }
+ ]
+}

@@ -1,0 +1,4 @@
+- Vikey `xiaomi/mimo-v2.6-pro`: Rp3.600 input / Rp7.200 output per 1M token; context 1M; capabilities chat, coding, vision; quick-start for Hermes, OpenCode, Claude Code, Codex CLI — source: vikey.ai/pricing, read 5 Oct 2026
+- Official MiMo-V2.6 Pro, overseas pay-as-you-go: $0,435 input (cache miss) / $0,87 output per 1M token — source: mimo.mi.com/docs/en-US/price/pay-as-you-go (updated 22 Sep 2026)
+- FX basis ±Rp18.000/USD → official ≈Rp7.830 input / ≈Rp15.660 output → Vikey is ±54% cheaper on both
+- Do NOT claim a cache discount: official cache hit $0.0036 is cheaper than Vikey cache read Rp720

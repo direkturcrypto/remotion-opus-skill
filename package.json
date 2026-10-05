@@ -1,0 +1,34 @@
+{
+  "name": "remotion-opus-skill",
+  "version": "0.1.0",
+  "description": "CLI + agent skill that lets cheap models (GLM-5.3 Flash, DeepSeek V4 Flash) build Opus-grade Remotion launch videos, with Claude Opus 5.5 as a vision verifier. Runs on the Vikey API.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "ros": "bin/ros.mjs"
+  },
+  "scripts": {
+    "ros": "node bin/ros.mjs",
+    "studio": "remotion studio src/index.ts",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.473",
+    "@remotion/cli": "4.0.473",
+    "@remotion/google-fonts": "4.0.473",
+    "@remotion/renderer": "4.0.473",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.473",
+    "tsx": "^4.20.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "5.9.3"
+  }
+}
