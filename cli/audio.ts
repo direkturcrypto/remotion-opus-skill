@@ -49,9 +49,9 @@ const LOOK_MOOD: Record<string, string> = {
   'ember-noir': 'bold cinematic trap-tech hybrid, deep 808, hard claps, dark brass stabs',
 };
 
-export const makeMusic = async (spec: Spec, out: string, seconds: number) => {
+export const makeMusic = async (spec: { look?: { preset: string } }, out: string, seconds: number, mood?: string) => {
   need('elevenKey', 'ElevenLabs music');
-  const prompt = `${LOOK_MOOD[spec.look.preset] ?? LOOK_MOOD['graphite-studio']}. Instrumental only, about 126 BPM, starts immediately on the beat, a short filter riser near the middle then a bigger drop, confident ending hit about 2 seconds before the end with a short tail. Fast modern ad pacing that sits under a voice-over, no vocals.`;
+  const prompt = `${mood ?? LOOK_MOOD[spec.look?.preset ?? ''] ?? LOOK_MOOD['graphite-studio']}. Instrumental only, about 126 BPM, starts immediately on the beat, a short filter riser near the middle then a bigger drop, confident ending hit about 2 seconds before the end with a short tail. Fast modern ad pacing that sits under a voice-over, no vocals.`;
   const r = await fetch('https://api.elevenlabs.io/v1/music', { method: 'POST', headers: { 'xi-api-key': cfg.elevenKey, 'Content-Type': 'application/json', Accept: 'audio/mpeg' }, body: JSON.stringify({ model_id: 'music_v1', music_length_ms: Math.round(seconds * 1000), prompt }) });
   if (!r.ok) throw new Error(`music ${r.status}: ${(await r.text()).slice(0, 300)}`);
   mkdirSync(path.dirname(out), { recursive: true });
@@ -72,7 +72,7 @@ const normalize = (src: string, out: string, target: number, tempo = 1) => {
 export const duration = (file: string) => Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).toString().trim());
 
 /** TTS each line → tempo + loudness → STT word timings. Returns lines whose transcript misses the brand/odd words. */
-export const makeVo = async (spec: Spec, voDir: string, wordsFile: string, only: string[] = []) => {
+export const makeVo = async (spec: Pick<Spec, 'vo' | 'language' | 'brand'>, voDir: string, wordsFile: string, only: string[] = []) => {
   need('elevenKey', 'voice-over');
   const raw = path.join(voDir, 'raw');
   mkdirSync(raw, { recursive: true });
@@ -84,12 +84,20 @@ export const makeVo = async (spec: Spec, voDir: string, wordsFile: string, only:
   const n = (x: string) => x.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
   const brand = n(spec.brand.name);
   /** fraction of spoken words (≥3 letters, not number words) that STT heard back; brand must be heard */
+  // phonetic key: STT spells a correctly spoken "Vikey" as Viki / Vikey / Viqi, but a wrong "Vai-ki" stays different
+  const phon = (x: string) => n(x).replace(/ey$/, 'i').replace(/y/g, 'i').replace(/q/g, 'k').replace(/c(?=[aou])/g, 'k').replace(/ph/g, 'f');
   const score = (expected: string, heard: string) => {
     const want = expected.split(/\s+/).map(n).filter((w) => w.length >= 3 && !NUMW.test(w));
     const got = heard.split(/\s+/).map(n).filter(Boolean);
-    const hit = want.filter((w) => got.some((g) => g === w || (g.length >= 3 && (g.startsWith(w) || w.startsWith(g)))));
-    const brandOk = !n(expected).includes(brand) || got.some((g) => g.startsWith(brand.slice(0, 4)) || g === brand);
-    return { ratio: want.length ? hit.length / want.length : 1, brandOk, missed: want.filter((w) => !hit.includes(w)) };
+    const gotP = got.map(phon);
+    const hit = want.filter((w) => got.some((g, i) => g === w || gotP[i] === phon(w) || (g.length >= 3 && (g.startsWith(w) || w.startsWith(g)))));
+    const brandOk = !n(expected).includes(brand) || gotP.some((g) => g === phon(brand) || g.startsWith(phon(brand)));
+    // spoken numbers must survive: STT writes them as words or digits, but they must not vanish
+    const wantsNum = expected.split(/\s+/).map(n).some((w) => NUMW.test(w));
+    const numOk = !wantsNum || /\d/.test(heard) || got.some((g) => NUMW.test(g));
+    const missed = want.filter((w) => !hit.includes(w));
+    if (!numOk) missed.push('(a spoken number)');
+    return { ratio: (want.length ? hit.length / want.length : 1) * (numOk ? 1 : 0.5), brandOk, missed };
   };
   const takes = Number(process.env.VO_TAKES ?? 3);
   for (const l of spec.vo.lines) {

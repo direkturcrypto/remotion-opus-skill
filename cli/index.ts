@@ -6,6 +6,8 @@ import { ensureSfxAssets } from './audio';
 import { cfg } from './env';
 import { lintSpec } from './lint';
 import { ROOT, proj } from './paths';
+import { checkScene, codeRender, runCode, writeScene } from './code';
+import { setDuration } from './target';
 import { concept, exampleProject, fix, latestRound, loadSpec, loadWords, plan, prepareAudio, recentFor, renderFinal, renderStills, run, usageSummary, verify, type Review } from './pipeline';
 import type { AspectId } from './render';
 
@@ -13,7 +15,7 @@ const HELP = `ros — Opus-grade Remotion launch videos from cheap models (Vikey
 
   ros init                      create .env, synthesize SFX, check tools
   ros doctor                    check keys, models, ffmpeg
-  ros new <slug> [--brief "…"]  scaffold projects/<slug>/ (brief.md + facts.md)
+  ros new <slug> [--brief "…"] [--duration 30]   scaffold projects/<slug>/ (length optional: else the director picks)
   ros concept <slug>            director (${cfg.director}) picks engine/look/story, different from recent films
   ros plan <slug>               builder model (${cfg.builder}) writes spec.json from the concept
   ros lint <slug>               validate spec.json (schema + facts + cues + pacing)
@@ -22,7 +24,9 @@ const HELP = `ros — Opus-grade Remotion launch videos from cheap models (Vikey
   ros verify <slug>             verifier (${cfg.verifier}) reviews the latest frames
   ros review <slug> [--rounds 3] stills → verify → fix, until it passes
   ros render <slug> [--aspect landscape|portrait]
-  ros run <slug>                everything: plan → audio → review loop → render
+  ros run <slug>                everything: plan → audio → review loop → render (spec mode: fixed engines)
+  ros code <slug>               CODE MODE: concept → script → audio → Opus writes a bespoke scene → review → render
+  ros code-scene|code-check|code-render <slug>   code-mode steps
   ros example                   copy the reference MiMo spec into projects/mimo-example
   ros usage <slug>              token usage per model
 `;
@@ -77,9 +81,10 @@ const main = async () => {
       if (!/^[a-z0-9-]+$/.test(s)) throw new Error('slug: lowercase letters, digits and dashes only');
       const P = proj(s);
       mkdirSync(P.dir, { recursive: true });
-      if (!existsSync(P.brief)) writeFileSync(P.brief, `${flag('brief') ?? '<what is launching, who it is for, the one message, the CTA, language (id/en)>'}\n\nBrand: ${cfg.brandName || '<name>'} (${cfg.brandUrl || '<url>'})\nLength: 15 s, landscape + portrait\n`);
+      if (!existsSync(P.brief)) writeFileSync(P.brief, `${flag('brief') ?? '<what is launching, who it is for, the one message, the CTA, language (id/en)>'}\n\nBrand: ${cfg.brandName || '<name>'} (${cfg.brandUrl || '<url>'})\nLength: optional — \"<N> detik\" (or ros new --duration N); leave it out and the director picks\nFormat: landscape + portrait\n`);
       if (!existsSync(P.facts)) writeFileSync(P.facts, '# Facts (every number on screen must appear here, with its source and date)\n\n- <fact> — source: <url>, read <date>\n');
-      console.log(`✓ ${path.relative(process.cwd(), P.dir)}/brief.md + facts.md — fill them in, then \`ros run ${s}\``);
+      if (flag('duration')) setDuration(s, Number(flag('duration')));
+      console.log(`✓ ${path.relative(process.cwd(), P.dir)}/brief.md + facts.md — fill them in, then \`ros run ${s}\` (or \`ros code ${s}\`)${flag('duration') ? ` · target ${flag('duration')} s` : ' · length: director decides (or --duration N)'}`);
       return;
     }
     case 'concept':
@@ -131,7 +136,23 @@ const main = async () => {
       return;
     }
     case 'run':
-      await run(needSlug(), { rounds: flag('rounds') ? Number(flag('rounds')) : undefined });
+      if (flag('mode') === 'code') await runCode(needSlug(), { rounds: flag('rounds') ? Number(flag('rounds')) : undefined });
+      else await run(needSlug(), { rounds: flag('rounds') ? Number(flag('rounds')) : undefined });
+      return;
+    case 'code':
+      await runCode(needSlug(), { rounds: flag('rounds') ? Number(flag('rounds')) : undefined, skipRender: flag('no-render') !== undefined });
+      return;
+    case 'code-scene':
+      await writeScene(needSlug());
+      return;
+    case 'code-check': {
+      const e = checkScene(needSlug());
+      e.forEach((x) => console.log(`✗ ${x}`));
+      if (!e.length) console.log('✓ scene passes the checks');
+      return;
+    }
+    case 'code-render':
+      await codeRender(needSlug(), flag('aspect') ? [flag('aspect') as AspectId] : undefined);
       return;
     case 'example':
       console.log(`✓ ${exampleProject(slug || 'mimo-example')} — try \`ros render ${slug || 'mimo-example'}\``);

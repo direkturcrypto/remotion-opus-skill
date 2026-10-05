@@ -9,8 +9,26 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "noEmit": true,
-    "lib": ["DOM", "ES2022"],
-    "types": ["node"]
+    "lib": [
+      "DOM",
+      "ES2022"
+    ],
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@scene": [
+        "src/code/placeholder.tsx"
+      ],
+      "@kit": [
+        "src/kit/index.ts"
+      ]
+    }
   },
-  "include": ["src", "cli", "remotion.config.ts"]
+  "include": [
+    "src",
+    "cli",
+    "remotion.config.ts"
+  ]
 }

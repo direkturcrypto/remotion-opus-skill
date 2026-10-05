@@ -7,9 +7,9 @@ import { departure, revealEnd } from '../src/engine/reveals';
 const CUE_KEYS = new Set(['at', 'from', 'to', 'cutAt', 'goAt', 'logoAt', 'scanFrom', 'scanTo', 'doneAt', 'kickerAt', 'revealAt']);
 const NON_VISIBLE = new Set(['at', 'from', 'to', 'cutAt', 'goAt', 'logoAt', 'scanFrom', 'scanTo', 'doneAt', 'kickerAt', 'revealAt', 'type', 'group', 'style', 'scene', 'effect', 'preset', 'path', 'voiceId', 'tts', 'slug', 'lines', 'mark', 'color', 'accent', 'hot', 'source']);
 
-const numTokens = (s: string) => (s.match(/\d+(?:[.,]\d+)*/g) ?? []).map((x) => x.replace(/[.,]/g, ''));
+export const numTokens = (s: string) => (s.match(/\d+(?:[.,]\d+)*/g) ?? []).map((x) => x.replace(/[.,]/g, ''));
 
-const factNumbers = (facts: string) => {
+export const factNumbers = (facts: string) => {
   const set = new Set(numTokens(facts));
   // common spoken/compact forms
   if (/\b1\s?M\b|sejuta|1 juta|one million/i.test(facts)) set.add('1000000');
@@ -39,7 +39,7 @@ export type LintResult = { spec?: Spec; errors: string[]; warnings: string[] };
 export type Recent = { looks: string[]; engine?: string; archetype?: string };
 type ConceptLite = { engine: string; path: string; look: { preset: string }; archetype: string };
 
-export const lintSpec = (raw: unknown, ctx: { facts: string; brief: string; recent: Recent; concept?: ConceptLite | null; reference?: unknown; words?: Words | null }): LintResult => {
+export const lintSpec = (raw: unknown, ctx: { facts: string; brief: string; recent: Recent; concept?: ConceptLite | null; reference?: unknown; words?: Words | null; durationSec?: number }): LintResult => {
   const errors: string[] = [];
   const warnings: string[] = [];
   const parsed = Spec.safeParse(raw);
@@ -103,7 +103,10 @@ export const lintSpec = (raw: unknown, ctx: { facts: string; brief: string; rece
     if (i === 0 && n > 7) warnings.push('vo.lines[0] is the hook: keep it ≤ 6 words (≈3 s)');
   });
   const voSec = tl.lastEnd / spec.fps;
-  if (voSec > 17) errors.push(`estimated VO length ${voSec.toFixed(1)} s is too long for a short spot — cut words (aim 11–13 s)`);
+  const target = ctx.durationSec ?? 15;
+  const voGoal = target - spec.holdSec;
+  if (voSec > voGoal + Math.max(1.5, voGoal * 0.12)) errors.push(`estimated VO length ${voSec.toFixed(1)} s is too long for a ${target} s film — cut words (aim ≈${voGoal.toFixed(0)} s)`);
+  else if (voSec < voGoal * 0.65) warnings.push(`estimated VO ${voSec.toFixed(1)} s is short for a ${target} s film (aim ≈${voGoal.toFixed(0)} s)`);
 
   // brand at the end of a sentence is pronounced right; mid-sentence it gets mangled by TTS
   const brand = norm(spec.brand.name);
