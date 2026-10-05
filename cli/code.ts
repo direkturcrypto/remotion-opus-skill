@@ -36,7 +36,13 @@ const rememberCode = (slug: string, c: CodeConcept) => {
 export type CodeConcept = { title: string; angle: string; metaphor: string; world: string; camera: string; components: string[]; typography: { display: string; text: string; mono?: string | null }; palette: Record<string, string>; beats: { says: string; shows: string }[]; hook: string; cta: string; why_different?: string };
 
 const promptFile = (name: string) => read(path.join(ROOT, 'prompts', name));
-const agentSystem = () => promptFile('agent.md').replace('{{KIT}}', promptFile('kit.md')).replace('{{STYLES}}', promptFile('styles.md'));
+// the full kit source goes into the system prompt (cached after the first call), so the agent never spends a costly
+// step reading it
+const kitSource = () =>
+  ['index.ts', 'vo.tsx', 'text.tsx', 'three.tsx', 'fx.tsx', 'ui.tsx']
+    .map((f) => `--- kit/${f} ---\n${read(path.join(ROOT, 'src/kit', f))}`)
+    .join('\n\n');
+const agentSystem = () => promptFile('agent.md').replace('{{KIT}}', `${promptFile('kit.md')}\n\n# KIT SOURCE (complete — no need to read these files)\n${kitSource()}`).replace('{{STYLES}}', promptFile('styles.md'));
 
 // ---------------------------------------------------------------- concept
 export const codeConcept = async (slug: string) => {
@@ -80,7 +86,7 @@ export const lintScript = (raw: unknown, facts: string, brief: string, durationS
     });
     for (const num of numTokens(l.caption)) if (num.length > 1 && !known.has(num)) errors.push(`vo.lines[${i}].caption shows ${num}, which is not in the facts`);
   });
-  const goal = Math.round((durationSec - s.holdSec - 0.4) / 0.36);
+  const goal = Math.round((durationSec - s.holdSec - 0.4) / 0.46);
   if (words > goal * 1.18 + 2) errors.push(`${words} spoken words — too long for ${durationSec} s (aim ≈${goal})`);
   if (words < goal * 0.6) errors.push(`${words} spoken words — too short for ${durationSec} s (aim ≈${goal})`);
   const all = JSON.stringify(s).toLowerCase();
@@ -88,13 +94,13 @@ export const lintScript = (raw: unknown, facts: string, brief: string, durationS
   return { errors, script: errors.length ? null : s };
 };
 
-export const codeScript = async (slug: string) => {
+export const codeScript = async (slug: string, feedback?: string) => {
   const F = files(slug);
   const c: CodeConcept = JSON.parse(read(F.concept));
   log(`▸ script with ${cfg.builder}`);
   const messages: Msg[] = [
     { role: 'system', content: promptFile('script.md') },
-    { role: 'user', content: `BRIEF:\n${read(F.brief)}\n\nFACTS:\n${read(F.facts)}\n\nCONCEPT:\n${JSON.stringify(c, null, 1)}\n\n${budgetLine(targetDuration(slug))}\n\nslug: "${slug}". Return the script JSON.` },
+    { role: 'user', content: `BRIEF:\n${read(F.brief)}\n\nFACTS:\n${read(F.facts)}\n\nCONCEPT:\n${JSON.stringify(c, null, 1)}\n\n${budgetLine(targetDuration(slug))}${feedback ? `\n\n${feedback}` : ''}\n\nslug: "${slug}". Return the script JSON.` },
   ];
   for (let a = 1; a <= 4; a++) {
     const { text } = await chat({ model: cfg.builder, messages, json: true, usageFile: F.usage, tag: `script#${a}` });
@@ -124,6 +130,17 @@ export const codeAudio = async (slug: string, force = false) => {
   if (force || s.vo.lines.some((l) => !existsSync(path.join(F.vo, `${l.id}.mp3`)))) {
     log(`▸ voice-over (${cfg.ttsModel})`);
     (await makeVo(s, F.vo, F.words)).forEach((w) => log(`  ⚠ ${w}`));
+    // the real recording decides: if it overshoots the target length, shorten the script once and record again
+    const target = targetDuration(slug);
+    const voSec = buildTimeline(s, loadWords(slug)).lastEnd / s.fps;
+    const goal = target - s.holdSec;
+    if (askedDuration(slug) && voSec > goal * 1.15 && !force) {
+      log(`  ⚠ VO runs ${voSec.toFixed(1)} s for a ${target} s film — shortening the script`);
+      const words = s.vo.lines.reduce((a, l) => a + l.text.split(/\s+/).length, 0);
+      await codeScript(slug, `The recorded voice-over ran ${voSec.toFixed(1)} s but the film is ${target} s (VO should be ≈${goal.toFixed(0)} s). Cut to about ${Math.round((words * goal) / voSec)} spoken words — keep the hook, the facts and the CTA.`);
+      await codeAudio(slug, true);
+      return;
+    }
   }
   if (!existsSync(F.music)) {
     log('▸ music bed');
@@ -181,7 +198,11 @@ export const checkScene = (slug: string) => {
       if (ts.isJsxText(n)) txt = n.getText();
       else if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) txt = n.text;
       else if (ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) txt = n.text;
-      const styleProp = ts.isStringLiteral(n) && ts.isPropertyAssignment(n.parent) && /^(fontFamily|font|transform|transformOrigin|filter|background|color|fill|stroke|d|points|viewBox|fontWeight|clipPath|boxShadow|mixBlendMode|id|key)$/.test(n.parent.name.getText());
+      // only text a viewer can read counts: skip style/geometry props and non-text JSX attributes (viewBox, d, fill…)
+      const VISIBLE_ATTR = /^(text|label|title|caption|value|body|app|alt|placeholder|children|name|heading|subtitle|kicker|badge|cta)$/;
+      const styleProp =
+        (ts.isStringLiteral(n) && ts.isPropertyAssignment(n.parent) && /^(fontFamily|font|transform|transformOrigin|filter|background|backgroundImage|color|fill|stroke|d|points|viewBox|fontWeight|clipPath|boxShadow|mixBlendMode|id|key|gridTemplateColumns|transition|animation)$/.test(n.parent.name.getText())) ||
+        (ts.isStringLiteral(n) && ts.isJsxAttribute(n.parent) && !VISIBLE_ATTR.test(n.parent.name.getText()));
       if (txt && txt.trim() && !CSSY.test(txt.trim()) && !styleProp && !(ts.isStringLiteral(n) && ts.isImportDeclaration(n.parent))) {
         for (const num of numTokens(txt)) if (num.length > 1 && !known.has(num) && !(Number(num) <= 12 && num.length <= 2)) errors.push(`${rel}: on-screen text "${txt.trim().slice(0, 40)}" contains ${num}, which is not in the facts`);
       }
@@ -231,7 +252,7 @@ const keyFrames = (slug: string) => {
 };
 
 /** the agent's tools: files inside scene/, the kit (read-only), checks, timing, and rendering frames it can look at */
-const sceneTools = (slug: string, round: { n: number }): AgentTool[] => {
+export const sceneTools = (slug: string, round: { n: number }): AgentTool[] => {
   const F = files(slug);
   const inside = (p: string) => {
     const full = path.resolve(F.sceneDir, String(p).replace(/^scene\//, ''));
@@ -345,21 +366,21 @@ const sceneTools = (slug: string, round: { n: number }): AgentTool[] => {
   ];
 };
 
-export const writeScene = async (slug: string, maxSteps = Number(process.env.AGENT_STEPS ?? 60)) => {
+export const writeScene = async (slug: string, maxSteps = Number(process.env.AGENT_STEPS ?? 16)) => {
   const F = files(slug);
   log(`▸ scene agent (${cfg.builder}) — builds step by step, renders and looks at its own frames`);
   mkdirSync(F.sceneDir, { recursive: true });
-  const r = await runAgent({ model: cfg.builder, system: agentSystem(), task: `${context(slug)}\n\nBuild the film in scene/. Start with \`timing\`.`, tools: sceneTools(slug, { n: 1 }), dir: F.agent, usageFile: F.usage, maxSteps, tag: 'build' });
-  log(`  ${r.done ? '✓' : '⚠'} agent ${r.done ? 'finished' : 'stopped'} after ${r.steps} steps — ${r.summary.slice(0, 200)}`);
+  const r = await runAgent({ model: cfg.builder, system: agentSystem(), task: `${context(slug)}\n\nBuild the film in scene/. Start with \`timing\`.`, tools: sceneTools(slug, { n: 1 }), dir: F.agent, usageFile: F.usage, maxSteps, tag: 'build', budgetRp: Number(process.env.AGENT_BUDGET_RP ?? 30000) });
+  log(`  ${r.done ? '✓' : '⚠'} agent ${r.done ? 'finished' : 'stopped'} after ${r.steps} steps (≈Rp${Math.round(r.spent).toLocaleString('id-ID')}) — ${r.summary.slice(0, 200)}`);
   const errs = checkScene(slug);
   if (errs.length) throw new Error(`scene still has problems:\n- ${errs.join('\n- ')}`);
 };
 
-export const reviseScene = async (slug: string, issues: string[], maxSteps = Number(process.env.AGENT_REVISE_STEPS ?? 30)) => {
+export const reviseScene = async (slug: string, issues: string[], maxSteps = Number(process.env.AGENT_REVISE_STEPS ?? 8)) => {
   const F = files(slug);
   log(`▸ scene agent revises ${issues.length} issue(s) (same session)`);
-  const r = await runAgent({ model: cfg.builder, system: agentSystem(), task: `The art director reviewed rendered frames of your film with fresh eyes. Fix these (verify with renders), keep what works, then call finish:\n- ${issues.join('\n- ')}`, tools: sceneTools(slug, { n: 100 }), dir: F.agent, usageFile: F.usage, maxSteps, tag: 'revise' });
-  log(`  ${r.done ? '✓' : '⚠'} revision ${r.done ? 'finished' : 'stopped'} after ${r.steps} steps`);
+  const r = await runAgent({ model: cfg.builder, system: agentSystem(), task: `The art director reviewed rendered frames of your film with fresh eyes. Fix these (verify with renders), keep what works, then call finish:\n- ${issues.join('\n- ')}`, tools: sceneTools(slug, { n: 100 }), dir: F.agent, usageFile: F.usage, maxSteps, tag: 'revise', budgetRp: Number(process.env.AGENT_REVISE_BUDGET_RP ?? 15000) });
+  log(`  ${r.done ? '✓' : '⚠'} revision ${r.done ? 'finished' : 'stopped'} after ${r.steps} steps (≈Rp${Math.round(r.spent).toLocaleString('id-ID')})`);
 };
 
 // ---------------------------------------------------------------- review

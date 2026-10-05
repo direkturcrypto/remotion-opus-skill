@@ -29,7 +29,8 @@ export const targetDuration = (slug: string): number => {
 
 /** the budget line we hand to the writers */
 export const budgetLine = (sec: number, hold = 2.2) => {
-  const words = Math.round((sec - hold - 0.4) / 0.36);
+  // measured on eleven_v4 Indonesian at tempo 1.12: ≈0.47 s per spoken word including the pauses between lines
+  const words = Math.round((sec - hold - 0.4) / 0.46);
   const lines = Math.max(3, Math.round(words / 7.5));
   return `TARGET LENGTH: ${sec} s → about ${words} spoken words in about ${lines} VO lines (≤ 10 words each), then a ${hold} s brand hold.`;
 };

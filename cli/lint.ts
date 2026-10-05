@@ -93,7 +93,7 @@ export const lintSpec = (raw: unknown, ctx: { facts: string; brief: string; rece
   const hero = spec.beats.find((b) => b.widget.type === 'hero');
   if (hero && hero.widget.type === 'hero' && hero.widget.name.map((n) => n.text).join('').length > 12) errors.push('hero.name pieces total more than 12 characters — shorten the displayed name');
 
-  // VO pacing (≈0.36 s per spoken word at tempo 1.1)
+  // VO pacing (≈0.46 s per spoken word incl. pauses, eleven_v4 at tempo 1.12)
   spec.vo.lines.forEach((l, i) => {
     const n = l.text.split(/\s+/).filter(Boolean).length;
     if (n > 10) errors.push(`vo.lines[${i}].text has ${n} words — max 10 per line; split it`);

@@ -18,7 +18,7 @@ Reply with the JSON object only. No markdown, no comments, no explanation.
    names written the way they should sound ("Mimo" not "MiMo-V2.6"). No digits in `text`. `caption` is what viewers
    read: proper spelling + digits ("MiMo-V2.6 Pro", "54%").
 5. Put the brand name at the END of a VO line ("…, pakai Vikey!"). Mid-sentence brand names get mispronounced.
-6. Pacing: ≈0.36 s per spoken word; the VO should fill the TARGET LENGTH minus ~2.5 s (the brand hold). The user
+6. Pacing: ≈0.46 s per spoken word; the VO should fill the TARGET LENGTH minus ~2.5 s (the brand hold). The user
    message gives the word budget and line count — stay within ±15 %. Roughly one beat per 2–3 s.
    Line 1 is the hook: ≤ 6 words, lands in ≤ 3 s, and names the subject (no vague "Ada kabar gembira!").
    Max 10 words per line.

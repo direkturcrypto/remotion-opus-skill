@@ -6,7 +6,7 @@ You write the VOICE-OVER SCRIPT for a film whose concept and TARGET LENGTH are a
   "facts": [ { "text", "source" } ] }
 
 Rules (a linter enforces them):
-1. Fill the TARGET LENGTH: the user message gives the spoken-word budget and line count (≈0.36 s per word; the
+1. Fill the TARGET LENGTH: the user message gives the spoken-word budget and line count (≈0.46 s per word; the
    last ~2.5 s are a silent brand hold). Stay within ±15 %. Line 1 is the hook: ≤ 6 words and it
    names the product. Max 10 words per line. Follow the concept's hook / CTA and beat order.
 2. `text` = what TTS speaks: numbers spelled as words ("lima puluh empat persen", "dua koma enam"), names written as

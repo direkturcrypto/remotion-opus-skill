@@ -28,7 +28,7 @@ export const estimateWords = (spec: TLInput): Words => {
   const words: Record<string, [string, number, number][]> = {};
   for (const l of spec.vo.lines) {
     const toks = l.text.split(/\s+/).filter(Boolean);
-    const d = Math.max(1.2, toks.length * 0.34 + 0.4);
+    const d = Math.max(1.2, toks.length * 0.42 + 0.5);
     const chars = toks.reduce((a, w) => a + w.length + 1, 0);
     let acc = 0;
     words[l.id] = toks.map((w) => {

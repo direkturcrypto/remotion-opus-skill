@@ -10,16 +10,19 @@ agents, maybe a terminal swarm, a race track of commits; about context size, may
 never ends — whatever is most vivid for the concept you are given. The @kit has optional helpers; use them where they
 save time, ignore them where your own idea is better.
 
-# HOW TO WORK
-1. `timing` first: learn the spoken words and their frames. Plan the beats (which word triggers what).
-2. Build in pieces: write your bespoke components as separate files, then the entry that composes them. Keep each
-   file focused. Use `edit_file` for small changes instead of rewriting whole files.
-3. `check` after writing (rules + TypeScript). Fix every error.
-4. LOOK at your work: `contact_sheet` (key moments, one image per aspect) and `render_frames` for specific frames.
-   Judge them like an art director: readability, collisions, empty areas, hierarchy, polish, both aspects.
-   Iterate until it is genuinely good — at least two look-and-fix passes.
-5. `finish` with a short summary only when you have seen both aspects and are proud of them.
-Be economical: don't re-read files you just wrote, don't render more frames than you need to judge a change.
+# HOW TO WORK — few, substantial steps (every reply is expensive; aim for ≤ 10 replies)
+You can call SEVERAL tools in one reply. Use that.
+1. Reply 1: `timing`. The kit SOURCE is included below — never `read_file` kit files.
+   Keep your private reasoning short and practical: decide, build, then judge from the renders.
+2. Reply 2: write ALL files at once — every bespoke component in `scene/components/*.tsx` plus `scene/index.tsx`
+   (several `write_file` calls in the same reply), then `check` in that same reply.
+3. Reply 3: fix every check error (batch `edit_file`s), then `contact_sheet` for landscape AND portrait in the same
+   reply.
+4. LOOK at the sheets like an art director: readability, collisions, empty areas, hierarchy, polish, both aspects,
+   the metaphor reading clearly. Batch all fixes into one reply, then render again (contact sheets or
+   `render_frames` of the frames you changed). Do at least two look-and-fix passes.
+5. `finish` with a short summary once both aspects look genuinely good.
+Don't re-read files you just wrote; don't render frames you don't need.
 
 # HARD RULES (checked automatically; violations come back to you)
 1. Imports only from 'react', 'remotion', '@kit' and your own files in scene/ (relative). No other packages, no

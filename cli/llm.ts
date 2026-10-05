@@ -11,7 +11,7 @@ export type Usage = { prompt_tokens?: number; completion_tokens?: number; total_
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-type Opts = { model: string; messages: Msg[]; maxTokens?: number; temperature?: number; json?: boolean; usageFile?: string; tag: string; stream?: boolean; tools?: ToolSpec[] };
+type Opts = { model: string; messages: Msg[]; maxTokens?: number; temperature?: number; json?: boolean; usageFile?: string; tag: string; stream?: boolean; tools?: ToolSpec[]; effort?: 'low' | 'medium' | 'high' };
 
 /** read an SSE stream from an OpenAI-compatible endpoint; shows live progress so long reasoning never looks stuck */
 async function readStream(r: Response, tag: string) {
@@ -73,15 +73,19 @@ async function readStream(r: Response, tag: string) {
 
 export async function chat(o: Opts) {
   need('vikeyKey', 'Vikey API key from vikey.ai/dashboard');
-  // no output cap unless a caller asks for one (a cap truncates long scene files)
-  let maxTokens: number | undefined = o.maxTokens;
+  // Ask for the model's full output room. Omitting max_tokens is NOT "unlimited": the gateway then applies its own
+  // small default (Sonnet stopped at 9216 with everything spent on thinking and an empty answer).
+  let maxTokens: number | undefined = o.maxTokens ?? Number(process.env.LLM_MAX_TOKENS ?? 64000);
   let json = o.json ?? false;
   let stream = o.stream ?? process.env.LLM_STREAM !== '0';
   let lastErr = '';
+  let emptyRetries = 0;
   for (let attempt = 1; attempt <= 5; attempt++) {
     const body: Record<string, unknown> = { model: o.model, messages: o.messages, temperature: o.temperature ?? 0.4 };
     if (maxTokens) body.max_tokens = maxTokens;
     if (o.tools?.length) body.tools = o.tools;
+    // how deep the model thinks — not an output cap
+    if (o.effort) body.reasoning_effort = o.effort;
     if (json) body.response_format = { type: 'json_object' };
     if (stream) {
       body.stream = true;
@@ -140,7 +144,9 @@ export async function chat(o: Opts) {
     if (error || !r.ok) {
       const msg = error?.message ?? `HTTP ${r.status}`;
       lastErr = `${r.status} ${msg}`;
-      if (error?.code === 'reasoning_exhausted_budget' || /max_tokens|reasoning/i.test(msg)) maxTokens = maxTokens ? Math.min(128000, maxTokens * 2) : undefined;
+      if (/max_tokens.*(exceed|too large|maximum|greater)|(exceed|maximum).*max_tokens/i.test(msg) && maxTokens) maxTokens = Math.max(8000, Math.floor(maxTokens / 2));
+      else if (error?.code === 'reasoning_exhausted_budget' || /reasoning/i.test(msg)) maxTokens = maxTokens ? Math.min(128000, maxTokens * 2) : undefined;
+      else if (/insufficient balance|insufficient_balance/i.test(msg)) throw new Error(`Vikey balance too low: ${msg}`);
       else if (json && /response_format|json/i.test(msg)) json = false;
       else if (stream && /stream/i.test(msg)) stream = false;
       else if (r.status === 401 || r.status === 403) throw new Error(`Vikey auth failed (${r.status}): ${msg}`);
@@ -153,7 +159,10 @@ export async function chat(o: Opts) {
       appendFileSync(o.usageFile, JSON.stringify({ ts: new Date().toISOString(), tag: o.tag, model: o.model, ...usage }) + '\n');
     }
     if (!text.trim() && !toolCalls.length) {
-      lastErr = 'empty answer';
+      // an empty answer means the output room was used up by thinking: retry once with more room, never blindly
+      lastErr = `empty answer (completion_tokens ${usage.completion_tokens ?? '?'})`;
+      if (emptyRetries++ >= 1) break;
+      maxTokens = Math.min(128000, (maxTokens ?? 32000) * 2);
       continue;
     }
     return { text, usage, toolCalls };
