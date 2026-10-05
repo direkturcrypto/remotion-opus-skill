@@ -6,6 +6,7 @@ import { ARCHETYPE_IDS, ENGINE_IDS, ENGINE_PATHS, LOOK_IDS, Spec, Words } from '
 import { installSfx, makeMusic, makeVo } from './audio';
 import { cfg } from './env';
 import { lintSpec, type Recent } from './lint';
+import { askedDuration, budgetLine, targetDuration } from './target';
 import { chat, parseJson, type Msg, type Part } from './llm';
 import { PROJECTS, ROOT, mustExist, proj } from './paths';
 import { media, propsFor, stills, type AspectId } from './render';
@@ -52,7 +53,7 @@ const lintLoop = async (slug: string, messages: Msg[], tag: string) => {
   const facts = read(P.facts);
   const brief = read(P.brief);
   for (let attempt = 1; attempt <= 5; attempt++) {
-    const { text } = await chat({ model: cfg.builder, messages, json: true, maxTokens: 16000, temperature: 0.5, usageFile: P.usage, tag: `${tag}#${attempt}` });
+    const { text } = await chat({ model: cfg.builder, messages, json: true, temperature: 0.5, usageFile: P.usage, tag: `${tag}#${attempt}` });
     let raw: Record<string, unknown>;
     try {
       raw = parseJson(text);
@@ -63,7 +64,7 @@ const lintLoop = async (slug: string, messages: Msg[], tag: string) => {
     raw.slug = slug;
     mkdirSync(path.join(P.dir, 'attempts'), { recursive: true });
     writeFileSync(path.join(P.dir, 'attempts', `${tag.replace(/[^a-z0-9#-]/gi, '_')}-${attempt}.json`), JSON.stringify(raw, null, 1));
-    const res = lintSpec(raw, { facts, brief, recent: recentFor(slug), concept: loadConcept(slug), reference: REFERENCE(), words: loadWords(slug) });
+    const res = lintSpec(raw, { facts, brief, recent: recentFor(slug), concept: loadConcept(slug), reference: REFERENCE(), words: loadWords(slug), durationSec: targetDuration(slug) });
     if (!res.errors.length && res.spec) {
       res.warnings.forEach((w) => log(`  ⚠ ${w}`));
       return res.spec;
@@ -99,12 +100,13 @@ export const concept = async (slug: string) => {
   const user = [
     `BRIEF:\n${read(P.brief)}`,
     `FACTS:\n${read(P.facts).trim() || '(none)'}`,
+    askedDuration(slug) ? `TARGET LENGTH: ${askedDuration(slug)} s (set by the client — use it as duration_sec)` : 'TARGET LENGTH: not set — choose duration_sec for what the story needs',
     `RECENT FILMS (oldest → newest):\n${films.length ? films.map((f) => `- ${f.slug}: engine ${f.engine ?? 'flythrough'}, path ${f.path ?? 'dolly'}, look ${f.look}, archetype ${f.archetype ?? 'launch'}${f.angle ? `, angle "${f.angle}"` : ''}`).join('\n') : '(none — this is the first film)'}`,
     'Return the concept JSON.',
   ].join('\n\n');
   const messages: Msg[] = [{ role: 'system', content: read(path.join(ROOT, 'prompts/concept.md')) }, { role: 'user', content: user }];
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const { text } = await chat({ model: cfg.director, messages, maxTokens: 12000, temperature: 0.9, usageFile: P.usage, tag: `concept#${attempt}` });
+    const { text } = await chat({ model: cfg.director, messages, temperature: 0.9, usageFile: P.usage, tag: `concept#${attempt}` });
     let c: Concept;
     try {
       c = parseJson<Concept>(text);
@@ -134,6 +136,7 @@ export const plan = async (slug: string) => {
     `BRIEF:\n${read(P.brief)}`,
     `FACTS (the ONLY allowed source of numbers and claims):\n${facts.trim() || '(none — show no numbers except those written in the brief)'}`,
     `CONCEPT (from the creative director — follow engine, path, look, archetype exactly; follow the beat outline, hook and CTA):\n${JSON.stringify(c, null, 1)}`,
+    budgetLine(targetDuration(slug)),
     `slug: "${slug}"${cfg.brandName ? `\nDefault brand: name "${cfg.brandName}", url "${cfg.brandUrl}"` : ''}`,
     'Return the spec JSON.',
   ].join('\n\n');
@@ -226,7 +229,7 @@ export const verify = async (slug: string, round: number, tiles: Tile[], qa: str
     parts.push({ type: 'text', text: `${t.id} — ${t.aspect} ${t.kind}, beat "${t.beat}", frame ${t.frame}` });
     parts.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${readFileSync(small).toString('base64')}` } });
   }
-  const { text } = await chat({ model: cfg.verifier, messages: [{ role: 'system', content: read(path.join(ROOT, 'prompts/verifier.md')) }, { role: 'user', content: parts }], maxTokens: 12000, temperature: 0.2, usageFile: P.usage, tag: `verify#${round}` });
+  const { text } = await chat({ model: cfg.verifier, messages: [{ role: 'system', content: read(path.join(ROOT, 'prompts/verifier.md')) }, { role: 'user', content: parts }], temperature: 0.2, usageFile: P.usage, tag: `verify#${round}` });
   const rv = parseJson<Review>(text);
   rv.issues = rv.issues ?? [];
   const dir = path.join(P.review, `round-${round}`);
@@ -276,7 +279,7 @@ export const fix = async (slug: string, round: number, rv: Review) => {
     if (issue.patch?.length) {
       try {
         const next = applyPatch(doc, issue.patch);
-        const res = lintSpec(next, { facts, brief, recent: recentFor(slug), concept: loadConcept(slug), words: loadWords(slug) });
+        const res = lintSpec(next, { facts, brief, recent: recentFor(slug), concept: loadConcept(slug), words: loadWords(slug), durationSec: targetDuration(slug) });
         if (!res.errors.length) {
           doc = next;
           log(`  ✓ patched: ${issue.problem.slice(0, 80)}`);
@@ -294,6 +297,7 @@ export const fix = async (slug: string, round: number, rv: Review) => {
       `BRIEF:\n${brief}`,
       `FACTS (the ONLY allowed source of numbers and claims):\n${facts || '(none)'}`,
       `CONCEPT (keep engine, path, look, archetype):\n${JSON.stringify(loadConcept(slug) ?? {})}`,
+      budgetLine(targetDuration(slug)),
       `CURRENT SPEC:\n${JSON.stringify(doc)}`,
       `The art director reviewed the rendered frames and requires these fixes:\n${left.map((i) => `- [${i.severity}] ${i.tile ?? ''} ${i.problem} → ${i.fix}`).join('\n')}`,
       'Apply every fix, change nothing else that works, and return the full corrected spec JSON only.',
@@ -410,7 +414,7 @@ export const usageSummary = (slug: string) => {
 export const run = async (slug: string, opts: { rounds?: number; skipRender?: boolean } = {}) => {
   const P = proj(slug);
   if (!existsSync(P.spec)) await plan(slug);
-  const res = lintSpec(JSON.parse(read(P.spec)), { facts: read(P.facts), brief: read(P.brief), recent: { looks: [] }, words: loadWords(slug) });
+  const res = lintSpec(JSON.parse(read(P.spec)), { facts: read(P.facts), brief: read(P.brief), recent: { looks: [] }, words: loadWords(slug), durationSec: targetDuration(slug) });
   if (res.errors.length) throw new Error(`spec.json has lint errors:\n- ${res.errors.join('\n- ')}`);
   await prepareAudio(slug);
   const rounds = opts.rounds ?? cfg.maxRounds;

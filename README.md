@@ -56,6 +56,31 @@ Cheap models are bad at motion design but fine at filling in a form. So they nev
   combination that is clearly different (it may not repeat the last engine or the last two looks). The builder must
   follow it; the linter enforces it.
 
+## Two modes
+
+| | spec mode (`ros run`) | code mode (`ros code`) |
+| --- | --- | --- |
+| what the model writes | a JSON spec for fixed engines (flythrough / poster / kinetic) | a bespoke Remotion scene with its own components |
+| how | one structured call + lint loop | an agent loop like Claude Code: write files → compile → render frames and look at them → edit → finish |
+| variety | 3 engines × 6 looks × 6 archetypes | anything the concept calls for (metaphors, UI remakes, worlds) |
+| cost per film (Opus, Vikey) | ≈Rp8–15k | ≈Rp30–35k (agent build ≈Rp15–20k, review + revision ≈Rp12k) |
+| reliability | very high | high, reviewed by Opus; quality varies more |
+
+Code mode details:
+- `ros code <slug>`: creative director concept (metaphor, world, camera, components, type, palette) → VO script →
+  ElevenLabs VO (auto-shortened if it overruns the target) → **scene agent** builds `projects/<slug>/scene/`
+  step by step with tools (`timing`, `write_file`, `edit_file`, `check`, `render_frames`, `contact_sheet`,
+  `finish`) → Opus art-director review → the same agent session revises → render.
+- The agent's session is saved after every step (`projects/<slug>/agent/session.json`, readable `log.md`).
+- Budgets: `AGENT_BUDGET_RP` (build, default 30000), `AGENT_REVISE_BUDGET_RP` (15000), `AGENT_STEPS` (16).
+- `@kit` (src/kit) is infrastructure + optional helpers; scenes are expected to invent their own components.
+
+## Length
+
+Films are as long as the story needs. Set it with `ros new <slug> --duration 30` or "30 detik" in the brief;
+otherwise the creative director picks (`duration_sec` in concept.json). The word budget follows the target
+(≈0.46 s per spoken word, measured on eleven_v4 Indonesian).
+
 ## Quick start
 
 ```bash
@@ -105,6 +130,8 @@ node bin/ros.mjs run my-launch           # → projects/my-launch/out/my-launch-
 | `VOICE_ID` / `TTS_MODEL` | Cahaya / `eleven_v4` | per-spec `vo.voiceId` overrides |
 | `VO_TAKES` | `3` | TTS takes per line, best STT match wins |
 | `LLM_STREAM` | `1` | stream completions (SSE) with a live progress line; `0` to disable |
+| `LLM_MAX_TOKENS` | `64000` | sent explicitly — omitting it lets the gateway apply a small default cap |
+| `AGENT_BUDGET_RP` / `AGENT_REVISE_BUDGET_RP` | `30000` / `15000` | code-mode agent stops when its spend reaches this |
 
 ## For agents
 

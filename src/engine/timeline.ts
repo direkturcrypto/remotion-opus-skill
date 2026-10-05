@@ -1,6 +1,6 @@
 // Voice-over is the clock. Line starts come from measured audio durations (words.json from `ros vo`); every visual
 // event is a cue into a spoken word, so a re-take only shifts things, it never breaks them.
-import type { Spec, Words } from '../spec/schema';
+import type { Words } from '../spec/schema';
 
 export type Timeline = {
   fps: number;
@@ -21,12 +21,14 @@ export const norm = (s: string) =>
     .replace(/[^a-z0-9]/g, '');
 
 /** without STT: spread words over an estimated duration (≈0.34 s/word for id/en at tempo 1.1) */
-export const estimateWords = (spec: Spec): Words => {
+export type TLInput = { fps: number; holdSec: number; vo: { lines: { id: string; text: string; caption: string }[] } };
+
+export const estimateWords = (spec: TLInput): Words => {
   const dur: Record<string, number> = {};
   const words: Record<string, [string, number, number][]> = {};
   for (const l of spec.vo.lines) {
     const toks = l.text.split(/\s+/).filter(Boolean);
-    const d = Math.max(1.2, toks.length * 0.34 + 0.4);
+    const d = Math.max(1.2, toks.length * 0.42 + 0.5);
     const chars = toks.reduce((a, w) => a + w.length + 1, 0);
     let acc = 0;
     words[l.id] = toks.map((w) => {
@@ -40,7 +42,7 @@ export const estimateWords = (spec: Spec): Words => {
   return { dur, words };
 };
 
-export const buildTimeline = (spec: Spec, w: Words | null): Timeline => {
+export const buildTimeline = (spec: TLInput, w: Words | null): Timeline => {
   const fps = spec.fps;
   const words = w ?? estimateWords(spec);
   const warnings: string[] = [];

@@ -190,9 +190,9 @@ export const Spec = z.object({
   vo: z.object({
     voiceId: z.string().optional(),
     tempo: z.number().min(0.9).max(1.25).default(1.1),
-    lines: z.array(VoLine).min(1).max(8),
+    lines: z.array(VoLine).min(1).max(30),
   }),
-  beats: z.array(Beat).min(2).max(9),
+  beats: z.array(Beat).min(2).max(40),
   facts: z.array(z.object({ text: z.string(), source: z.string() })).default([]),
 });
 export type Spec = z.infer<typeof Spec>;

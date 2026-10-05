@@ -52,7 +52,15 @@ A good brief names: the product, the audience/angle, the single takeaway, the ex
 (e.g. must end with "pakai Vikey!"), language for VO and captions, brand name/url/colour, and things to avoid
 (e.g. "no Xiaomi logo, model name as text").
 
-## 3. Run the loop
+## 3. Pick a mode
+
+- `ros run <slug>` — **spec mode**: fixed, polished engines (flythrough / poster / kinetic). Cheapest, most predictable.
+- `ros code <slug>` — **code mode**: an Opus agent writes a bespoke scene with its own components for this story,
+  renders and looks at its own frames, then an art director reviews it. Use it when the client wants something
+  that doesn't look like any previous video. ≈Rp30–35k per film on Vikey.
+Length: `ros new <slug> --duration 30` (or "30 detik" in the brief); otherwise the director picks.
+
+## 3b. Run the loop (spec mode)
 
 ```bash
 ros run <slug>     # concept → plan → audio → review rounds (stills → Opus verify → fix) → render
