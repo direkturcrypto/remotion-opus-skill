@@ -48,7 +48,7 @@ export const agents = (w: z.infer<typeof Agents>, ctx: Ctx): WidgetOut => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, whiteSpace: 'nowrap' }}>
           <span style={{ fontFamily: f.mono, fontWeight: 600, fontSize: 26 }}>{name}</span>
           <div style={{ flex: 1 }} />
-          {w.meta && <span style={{ fontFamily: f.mono, fontSize: 19, color: L.card.muted }}>{w.meta}</span>}
+          {w.meta && i === 0 && <span style={{ fontFamily: f.mono, fontSize: 19, color: L.card.muted }}>{w.meta}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontFamily: f.ui, fontWeight: 500, fontSize: 30, whiteSpace: 'nowrap' }}>
           <span style={{ fontFamily: f.mono, color: done ? GREEN : L.hot, width: 26 }}>{done ? '✓' : SPIN[Math.floor(t / (fast > 0 ? 1 : 4)) % SPIN.length]}</span>

@@ -35,9 +35,11 @@ export const stat = (w: z.infer<typeof Stat>, ctx: Ctx): WidgetOut => {
           </div>
           <div style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', left: 0, right: 0, bottom: (P ? 70 : 62) + 18, display: 'flex', gap: 12, height: 50 }}>
-              {(w.chips ?? []).map((c, i) => {
-                const a = from + 4 + i * 9;
-                const sink = prog(t, a + 14, a + 30, inOut);
+              {(w.chips ?? []).map((c, i, arr) => {
+                // files drop into the context bar and are gone by the time the counter lands
+                const span = Math.max(24, to - 10 - from);
+                const a = from + (i * span) / (arr.length + 1);
+                const sink = prog(t, a + span * 0.35, a + span * 0.6, inOut);
                 return (
                   <Chip key={c} ctx={ctx} size={P ? 24 : 21} style={{ opacity: prog(t, a, a + 8) * (1 - sink), transform: `translateY(${((1 - prog(t, a, a + 12)) * -20 + sink * 40).toFixed(1)}px) scale(${(1 - sink * 0.3).toFixed(3)})` }}>
                     {c}
@@ -171,7 +173,8 @@ export const code = (w: z.infer<typeof Code>, ctx: Ctx): WidgetOut => {
     return (
       <Card ctx={ctx} w={cw} h={ch} pad={pad}>
         <Head ctx={ctx} icon="code" label={w.label} right={w.chip ? <Chip ctx={ctx} size={P ? 24 : 20}>{w.chip}</Chip> : undefined} size={P ? 24 : 20} />
-        <div style={{ marginTop: P ? 34 : 30, height: ch - pad * 2 - (P ? 24 : 20) * 2.1 - (P ? 34 : 30) - (w.done ? 64 : 0), boxSizing: 'border-box', background: ctx.look.card.inset, border: `1.5px solid ${ctx.look.card.line}`, borderRadius: 18, padding: P ? '24px 26px' : '20px 22px', fontFamily: ctx.f.mono, fontSize: fs, lineHeight: 1.6, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: (P ? 24 : 20) * 2.1, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 26 }}>
+        <div style={{ boxSizing: 'border-box', background: ctx.look.card.inset, border: `1.5px solid ${ctx.look.card.line}`, borderRadius: 18, padding: P ? '24px 26px' : '20px 22px', fontFamily: ctx.f.mono, fontSize: fs, lineHeight: 1.6, overflow: 'hidden' }}>
           {toks.map((line, li) => {
             const spans: React.ReactNode[] = [];
             let lineChars = 0;
@@ -192,11 +195,12 @@ export const code = (w: z.infer<typeof Code>, ctx: Ctx): WidgetOut => {
           })}
         </div>
         {w.done && (
-          <div style={{ position: 'absolute', left: 0, bottom: 0, display: 'flex', alignItems: 'center', gap: 14, fontFamily: ctx.f.ui, fontWeight: 600, fontSize: P ? 30 : 26, color: GREEN, opacity: pass, transform: `translateY(${((1 - pass) * 16).toFixed(1)}px)` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontFamily: ctx.f.ui, fontWeight: 600, fontSize: P ? 30 : 26, color: GREEN, opacity: pass, transform: `translateY(${((1 - pass) * 16).toFixed(1)}px)` }}>
             <span style={{ width: P ? 38 : 34, height: P ? 38 : 34, borderRadius: 10, background: 'rgba(34,197,94,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
             {w.done}
           </div>
         )}
+        </div>
       </Card>
     );
   };

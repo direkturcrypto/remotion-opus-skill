@@ -61,7 +61,7 @@ export const Code = z.object({
   type: z.literal('code'),
   label: short(14),
   chip: short(16).optional(),
-  lines: z.array(z.string().max(34)).min(2).max(6),
+  lines: z.array(z.string().max(34)).min(4).max(6),
   from: Cue,
   done: short(24).optional(),
   doneAt: Cue.optional(),

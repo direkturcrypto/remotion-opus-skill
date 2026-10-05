@@ -53,6 +53,8 @@ const lintLoop = async (slug: string, messages: Msg[], tag: string) => {
       continue;
     }
     raw.slug = slug;
+    mkdirSync(path.join(P.dir, 'attempts'), { recursive: true });
+    writeFileSync(path.join(P.dir, 'attempts', `${tag.replace(/[^a-z0-9#-]/gi, '_')}-${attempt}.json`), JSON.stringify(raw, null, 1));
     const res = lintSpec(raw, { facts, brief, recentLooks: recentLooks(slug), reference: REFERENCE(), words: loadWords(slug) });
     if (!res.errors.length && res.spec) {
       res.warnings.forEach((w) => log(`  ⚠ ${w}`));

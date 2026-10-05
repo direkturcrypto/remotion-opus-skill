@@ -67,7 +67,7 @@ stat — big counter + token bar
 vision — image scan with detection boxes
   label ≤14, chip ≤16, scene "dashboard"|"document", scanFrom, scanTo, detect 1–3 × ≤10, result ≤26.
 code — editor typing code
-  label ≤14, chip ≤16, lines 2–6 × ≤34 chars (real-looking, short), from, done ≤24, doneAt.
+  label ≤14, chip ≤16, lines 4–6 × ≤34 chars (real-looking code for THIS story, not the reference), from, done ≤24, doneAt.
 checklist — items tick on their cues
   title ≤24, items 2–5 × {text ≤34, at}.
 chat — chat thread demo
