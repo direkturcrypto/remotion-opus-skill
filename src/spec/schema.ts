@@ -18,7 +18,15 @@ const Hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'hex colour like #E7010A');
 const short = (n: number) => z.string().min(1).max(n);
 
 export const LOOK_IDS = ['graphite-studio', 'midnight-glass', 'paper-ink', 'aurora-soft', 'mono-lab', 'ember-noir'] as const;
-export const PATH_IDS = ['dolly', 'serpentine', 'staircase'] as const;
+export const ENGINE_IDS = ['flythrough', 'poster', 'kinetic'] as const;
+export const PATH_IDS = ['dolly', 'serpentine', 'staircase', 'zigzag', 'strip', 'zoom', 'turns'] as const;
+/** which camera journeys each engine understands */
+export const ENGINE_PATHS: Record<(typeof ENGINE_IDS)[number], readonly (typeof PATH_IDS)[number][]> = {
+  flythrough: ['dolly', 'serpentine', 'staircase'],
+  poster: ['zigzag', 'strip'],
+  kinetic: ['zoom', 'turns'],
+};
+export const ARCHETYPE_IDS = ['launch', 'problem-solution', 'versus', 'demo', 'reasons', 'one-number'] as const;
 
 const Timed = z.object({ text: short(14), at: Cue, accent: z.boolean().optional() });
 
@@ -175,6 +183,8 @@ export const Spec = z.object({
   fps: z.literal(60).default(60),
   holdSec: z.number().min(0.5).max(4).default(2.2),
   brand: z.object({ name: short(24), url: short(40), mark: z.enum(['vikey', 'monogram']).default('monogram'), color: Hex.optional() }),
+  engine: z.enum(ENGINE_IDS).default('flythrough').describe('visual language: 3D card fly-through, 2D editorial poster, or full-bleed kinetic type'),
+  archetype: z.enum(ARCHETYPE_IDS).default('launch'),
   look: z.object({ preset: z.enum(LOOK_IDS), accent: z.tuple([Hex, Hex]).optional(), hot: Hex.optional() }),
   path: z.enum(PATH_IDS).default('dolly'),
   vo: z.object({

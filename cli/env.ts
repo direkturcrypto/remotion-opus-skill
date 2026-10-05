@@ -15,7 +15,8 @@ for (const f of [path.join(process.cwd(), '.env'), path.join(ROOT, '.env')]) {
 export const cfg = {
   vikeyKey: process.env.VIKEY_API_KEY ?? '',
   baseUrl: (process.env.VIKEY_BASE_URL ?? 'https://api.vikey.ai/v1').replace(/\/$/, ''),
-  builder: process.env.BUILDER_MODEL ?? 'glm/glm-5.3-flash',
+  builder: process.env.BUILDER_MODEL ?? 'anthropic/claude-opus-5.5',
+  director: process.env.DIRECTOR_MODEL ?? process.env.VERIFIER_MODEL ?? 'anthropic/claude-opus-5.5',
   verifier: process.env.VERIFIER_MODEL ?? 'anthropic/claude-opus-5.5',
   elevenKey: process.env.ELEVENLABS_API_KEY ?? '',
   voice: process.env.VOICE_ID ?? 'iWydkXKoiVtvdn4vLKp9',

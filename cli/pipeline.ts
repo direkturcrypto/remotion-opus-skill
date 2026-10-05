@@ -2,14 +2,14 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { buildTimeline } from '../src/engine/timeline';
-import { Spec, Words } from '../src/spec/schema';
+import { ARCHETYPE_IDS, ENGINE_IDS, ENGINE_PATHS, LOOK_IDS, Spec, Words } from '../src/spec/schema';
 import { installSfx, makeMusic, makeVo } from './audio';
 import { cfg } from './env';
-import { lintSpec } from './lint';
+import { lintSpec, type Recent } from './lint';
 import { chat, parseJson, type Msg, type Part } from './llm';
 import { PROJECTS, ROOT, mustExist, proj } from './paths';
 import { media, propsFor, stills, type AspectId } from './render';
-import { departure, revealEnd } from './reveals';
+import { departure, revealEnd } from '../src/engine/reveals';
 
 const read = (p: string) => (existsSync(p) ? readFileSync(p, 'utf8') : '');
 const log = (s: string) => console.log(s);
@@ -25,18 +25,26 @@ export const loadWords = (slug: string) => {
   return existsSync(P.words) ? Words.parse(JSON.parse(read(P.words))) : null;
 };
 const HISTORY = path.join(PROJECTS, '.history.json');
-export const recentLooks = (slug: string) => {
-  const h: { slug: string; look: string }[] = existsSync(HISTORY) ? JSON.parse(read(HISTORY)) : [];
-  return h.filter((x) => x.slug !== slug).slice(-2).map((x) => x.look);
+export type Film = { slug: string; look: string; engine?: string; path?: string; archetype?: string; angle?: string; ts?: string };
+const history = (): Film[] => (existsSync(HISTORY) ? JSON.parse(read(HISTORY)) : []);
+/** the films made before this one (most recent last) */
+export const recentFilms = (slug: string, n = 4) => history().filter((x) => x.slug !== slug).slice(-n);
+export const recentFor = (slug: string): Recent => {
+  const r = recentFilms(slug);
+  return { looks: r.slice(-2).map((x) => x.look), engine: r[r.length - 1]?.engine, archetype: r[r.length - 1]?.archetype };
 };
-const remember = (slug: string, look: string) => {
-  const h: { slug: string; look: string; ts: string }[] = existsSync(HISTORY) ? JSON.parse(read(HISTORY)) : [];
+/** kept for callers that only need the looks */
+export const recentLooks = (slug: string) => recentFor(slug).looks;
+const remember = (slug: string, spec: { look: { preset: string }; engine?: string; path?: string; archetype?: string }, angle?: string) => {
   mkdirSync(PROJECTS, { recursive: true });
-  writeFileSync(HISTORY, JSON.stringify([...h.filter((x) => x.slug !== slug), { slug, look, ts: new Date().toISOString() }], null, 1));
+  const prev = history().find((x) => x.slug === slug);
+  const film: Film = { slug, look: spec.look.preset, engine: spec.engine, path: spec.path, archetype: spec.archetype, angle: angle ?? prev?.angle, ts: new Date().toISOString() };
+  writeFileSync(HISTORY, JSON.stringify([...history().filter((x) => x.slug !== slug), film], null, 1));
 };
+const loadConcept = (slug: string): Concept | null => (existsSync(proj(slug).concept) ? JSON.parse(read(proj(slug).concept)) : null);
 
 const REFERENCE = () => JSON.parse(read(path.join(ROOT, 'examples/mimo-v2.6-pro/spec.json')));
-const builderSystem = () => read(path.join(ROOT, 'prompts/builder.md')).replace('{{EXAMPLE}}', JSON.stringify(JSON.parse(read(path.join(ROOT, 'examples/mimo-v2.6-pro/spec.json')))));
+const builderSystem = () => read(path.join(ROOT, 'prompts/builder.md'));
 
 // ---------------------------------------------------------------- plan: builder writes the spec
 const lintLoop = async (slug: string, messages: Msg[], tag: string) => {
@@ -55,7 +63,7 @@ const lintLoop = async (slug: string, messages: Msg[], tag: string) => {
     raw.slug = slug;
     mkdirSync(path.join(P.dir, 'attempts'), { recursive: true });
     writeFileSync(path.join(P.dir, 'attempts', `${tag.replace(/[^a-z0-9#-]/gi, '_')}-${attempt}.json`), JSON.stringify(raw, null, 1));
-    const res = lintSpec(raw, { facts, brief, recentLooks: recentLooks(slug), reference: REFERENCE(), words: loadWords(slug) });
+    const res = lintSpec(raw, { facts, brief, recent: recentFor(slug), concept: loadConcept(slug), reference: REFERENCE(), words: loadWords(slug) });
     if (!res.errors.length && res.spec) {
       res.warnings.forEach((w) => log(`  ⚠ ${w}`));
       return res.spec;
@@ -67,23 +75,72 @@ const lintLoop = async (slug: string, messages: Msg[], tag: string) => {
   throw new Error(`${tag}: builder could not produce a valid spec after 5 attempts`);
 };
 
+// ---------------------------------------------------------------- concept: the creative director picks the film
+export type Concept = { engine: string; path: string; look: { preset: string; accent?: [string, string]; hot?: string }; archetype: string; angle: string; hook: string; cta: string; beats: { widget: string; says: string; shows: string }[]; why_different?: string };
+
+const checkConcept = (c: Concept, recent: Recent): string[] => {
+  const e: string[] = [];
+  if (!(ENGINE_IDS as readonly string[]).includes(c.engine)) e.push(`engine must be one of ${ENGINE_IDS.join(', ')}`);
+  else if (!(ENGINE_PATHS[c.engine as (typeof ENGINE_IDS)[number]] as readonly string[]).includes(c.path)) e.push(`path "${c.path}" is not valid for ${c.engine} (use ${ENGINE_PATHS[c.engine as (typeof ENGINE_IDS)[number]].join(' or ')})`);
+  if (!(LOOK_IDS as readonly string[]).includes(c.look?.preset)) e.push(`look.preset must be one of ${LOOK_IDS.join(', ')}`);
+  if (!(ARCHETYPE_IDS as readonly string[]).includes(c.archetype)) e.push(`archetype must be one of ${ARCHETYPE_IDS.join(', ')}`);
+  if (recent.engine && c.engine === recent.engine) e.push(`engine "${c.engine}" was used by the most recent film — pick another`);
+  if (recent.looks.includes(c.look?.preset)) e.push(`look "${c.look?.preset}" was used in the last two films — pick another`);
+  if (!Array.isArray(c.beats) || c.beats.length < 4) e.push('beats: give 4–8 beats');
+  return e;
+};
+
+export const concept = async (slug: string) => {
+  const P = proj(slug);
+  mustExist(P.brief, `create it with \`ros new ${slug}\``);
+  const recent = recentFor(slug);
+  log(`▸ concept ${slug} with ${cfg.director}`);
+  const films = recentFilms(slug);
+  const user = [
+    `BRIEF:\n${read(P.brief)}`,
+    `FACTS:\n${read(P.facts).trim() || '(none)'}`,
+    `RECENT FILMS (oldest → newest):\n${films.length ? films.map((f) => `- ${f.slug}: engine ${f.engine ?? 'flythrough'}, path ${f.path ?? 'dolly'}, look ${f.look}, archetype ${f.archetype ?? 'launch'}${f.angle ? `, angle "${f.angle}"` : ''}`).join('\n') : '(none — this is the first film)'}`,
+    'Return the concept JSON.',
+  ].join('\n\n');
+  const messages: Msg[] = [{ role: 'system', content: read(path.join(ROOT, 'prompts/concept.md')) }, { role: 'user', content: user }];
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { text } = await chat({ model: cfg.director, messages, maxTokens: 12000, temperature: 0.9, usageFile: P.usage, tag: `concept#${attempt}` });
+    let c: Concept;
+    try {
+      c = parseJson<Concept>(text);
+    } catch (e) {
+      messages.push({ role: 'assistant', content: text.slice(0, 3000) }, { role: 'user', content: `Not valid JSON (${String(e)}). Return only the concept JSON.` });
+      continue;
+    }
+    const errs = checkConcept(c, recent);
+    if (!errs.length) {
+      writeFileSync(P.concept, JSON.stringify(c, null, 1));
+      log(`  ✓ ${c.engine}/${c.path} · ${c.look.preset} · ${c.archetype} — ${c.angle}`);
+      return c;
+    }
+    log(`  ✗ concept #${attempt}: ${errs.join('; ')}`);
+    messages.push({ role: 'assistant', content: JSON.stringify(c) }, { role: 'user', content: `Fix and return the full concept JSON:\n- ${errs.join('\n- ')}` });
+  }
+  throw new Error('concept: the director could not produce a valid concept');
+};
+
 export const plan = async (slug: string) => {
   const P = proj(slug);
   mustExist(P.brief, `create it with \`ros new ${slug}\``);
   const facts = read(P.facts);
-  const recent = recentLooks(slug);
+  const c = loadConcept(slug) ?? (await concept(slug));
   log(`▸ plan ${slug} with ${cfg.builder}`);
   const user = [
     `BRIEF:\n${read(P.brief)}`,
     `FACTS (the ONLY allowed source of numbers and claims):\n${facts.trim() || '(none — show no numbers except those written in the brief)'}`,
-    `RECENT LOOKS (do NOT use): ${recent.join(', ') || '(none)'}`,
+    `CONCEPT (from the creative director — follow engine, path, look, archetype exactly; follow the beat outline, hook and CTA):\n${JSON.stringify(c, null, 1)}`,
     `slug: "${slug}"${cfg.brandName ? `\nDefault brand: name "${cfg.brandName}", url "${cfg.brandUrl}"` : ''}`,
     'Return the spec JSON.',
   ].join('\n\n');
   const spec = await lintLoop(slug, [{ role: 'system', content: builderSystem() }, { role: 'user', content: user }], 'plan');
   writeFileSync(P.spec, JSON.stringify(spec, null, 1));
-  remember(slug, spec.look.preset);
-  log(`  ✓ spec.json (${spec.beats.length} beats, look ${spec.look.preset}, path ${spec.path})`);
+  remember(slug, spec, c.angle);
+  log(`  ✓ spec.json (${spec.beats.length} beats, ${spec.engine}/${spec.path}, look ${spec.look.preset}, ${spec.archetype})`);
   return spec;
 };
 
@@ -104,7 +161,8 @@ export const pickFrames = (spec: Spec, words: Words | null) => {
     // judge the settled frame: after the last reveal has landed, before the camera leaves
     const dep = departure(spec, i, tl.cue, tl.total);
     const ready = revealEnd(b, tl.cue).frame;
-    const hold = i + 1 < spec.beats.length ? Math.max(arrive[i] + 18, Math.min(dep - 2, Math.max(ready, dep - 30))) : Math.max(ready, tl.total - 24);
+    // the moment that matters: just after the last reveal lands (the camera may leave or pull out soon after)
+    const hold = i + 1 < spec.beats.length ? Math.max(arrive[i] + 18, Math.min(dep - 2, ready + 12)) : Math.max(ready, tl.total - 24);
     out.push({ frame: hold, beat: b.id, kind: 'hold' });
     const prev = spec.beats[i - 1];
     const forward = prev && !(b.group && prev.group === b.group) && !(b.widget.type === 'lockup' && b.widget.stack);
@@ -218,7 +276,7 @@ export const fix = async (slug: string, round: number, rv: Review) => {
     if (issue.patch?.length) {
       try {
         const next = applyPatch(doc, issue.patch);
-        const res = lintSpec(next, { facts, brief, recentLooks: recentLooks(slug), words: loadWords(slug) });
+        const res = lintSpec(next, { facts, brief, recent: recentFor(slug), concept: loadConcept(slug), words: loadWords(slug) });
         if (!res.errors.length) {
           doc = next;
           log(`  ✓ patched: ${issue.problem.slice(0, 80)}`);
@@ -235,7 +293,7 @@ export const fix = async (slug: string, round: number, rv: Review) => {
     const user = [
       `BRIEF:\n${brief}`,
       `FACTS (the ONLY allowed source of numbers and claims):\n${facts || '(none)'}`,
-      `RECENT LOOKS (do NOT use): ${recentLooks(slug).join(', ') || '(none)'}`,
+      `CONCEPT (keep engine, path, look, archetype):\n${JSON.stringify(loadConcept(slug) ?? {})}`,
       `CURRENT SPEC:\n${JSON.stringify(doc)}`,
       `The art director reviewed the rendered frames and requires these fixes:\n${left.map((i) => `- [${i.severity}] ${i.tile ?? ''} ${i.problem} → ${i.fix}`).join('\n')}`,
       'Apply every fix, change nothing else that works, and return the full corrected spec JSON only.',
@@ -244,7 +302,7 @@ export const fix = async (slug: string, round: number, rv: Review) => {
   }
   const spec = Spec.parse(doc);
   writeFileSync(P.spec, JSON.stringify(spec, null, 1));
-  remember(slug, spec.look.preset);
+  remember(slug, spec);
   return spec;
 };
 
@@ -275,24 +333,37 @@ export const diffScan = (file: string, aspect: AspectId, spec: Spec, words: Word
   const crop = aspect === 'landscape' ? 'crop=1920:900:0:0' : 'crop=1080:1600:0:0';
   const res = spawnSync('ffmpeg', ['-v', 'error', '-i', file, '-vf', `${crop},scale=480:-2,format=gray,tblend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-`, '-an', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 26 });
   const vals: number[] = [];
-  for (const m of res.stdout.matchAll(/YAVG=([\d.]+)/g)) vals.push(Number(m[1]));
-  // intended hits (cuts, whips, logo slams, flashes) are allowed to spike
-  const intended: number[] = [];
+  // values can be in scientific notation (9.2e-06) on static frames — parse the whole token
+  for (const m of res.stdout.matchAll(/YAVG=([-\d.eE+]+)/g)) vals.push(Number(m[1]));
+  // intended changes (cue hits, counters, odometers, typing, scans) are allowed to spike
+  const ranges: [number, number][] = [];
+  const cueKeys = ['cutAt', 'goAt', 'logoAt', 'at', 'from', 'to', 'scanFrom', 'scanTo', 'doneAt', 'kickerAt', 'revealAt'];
   const walkCues = (o: unknown) => {
     if (Array.isArray(o)) o.forEach(walkCues);
     else if (o && typeof o === 'object')
       for (const [k, v] of Object.entries(o)) {
-        if (['cutAt', 'goAt', 'logoAt', 'at', 'from', 'to', 'scanFrom', 'scanTo', 'doneAt', 'kickerAt', 'revealAt'].includes(k) && typeof v === 'string') intended.push(tl.cue(v), tl.cue(v) + 10, tl.cue(v) + 20);
+        if (cueKeys.includes(k) && typeof v === 'string') ranges.push([tl.cue(v) - 4, tl.cue(v) + 22]);
         else walkCues(v);
       }
   };
   walkCues(spec.beats);
+  for (const b of spec.beats) {
+    const w = b.widget;
+    if (w.type === 'stat') ranges.push([tl.cue(w.from) - 4, tl.cue(w.to) + 16]);
+    if (w.type === 'price') ranges.push([tl.cue(w.cutAt) - 4, tl.cue(w.cutAt) + 60]);
+    if (w.type === 'vision') ranges.push([tl.cue(w.scanFrom) - 4, tl.cue(w.scanTo) + 34]);
+    if (w.type === 'code') ranges.push([tl.cue(w.from) - 10, (w.doneAt ? tl.cue(w.doneAt) : tl.cue(w.from) + w.lines.join('').length / 2.2) + 24]);
+    if (w.type === 'bars') ranges.push([tl.cue(w.from) - 4, tl.cue(w.from) + 40 + w.items.length * 6]);
+    if (w.type === 'chat') w.messages.forEach((m) => ranges.push([tl.cue(m.at) - 20, tl.cue(m.at) + m.text.length / 1.8 + 14]));
+    if (w.type === 'hero' && w.id) ranges.push([tl.cue(w.name[0].at) - 8, tl.cue(w.accentWord?.at ?? w.name[w.name.length - 1].at) + 16]);
+  }
+  const intended = (f: number) => ranges.some(([a, b]) => f >= a && f <= b);
   const spikes: { frame: number; v: number; ratio: number }[] = [];
   for (let i = 3; i < vals.length - 2; i++) {
     const n = (vals[i - 2] + vals[i - 1] + vals[i + 1] + vals[i + 2]) / 4;
     const ratio = n > 0.05 ? vals[i] / n : vals[i] * 20;
     const frame = i + 1;
-    if (vals[i] > 1.5 && ratio > 2.4 && !intended.some((c) => Math.abs(c - frame) <= 4)) spikes.push({ frame, v: vals[i], ratio });
+    if (vals[i] > 1.5 && ratio > 2.4 && !intended(frame)) spikes.push({ frame, v: vals[i], ratio });
   }
   return spikes;
 };
@@ -339,7 +410,7 @@ export const usageSummary = (slug: string) => {
 export const run = async (slug: string, opts: { rounds?: number; skipRender?: boolean } = {}) => {
   const P = proj(slug);
   if (!existsSync(P.spec)) await plan(slug);
-  const res = lintSpec(JSON.parse(read(P.spec)), { facts: read(P.facts), brief: read(P.brief), recentLooks: [], words: loadWords(slug) });
+  const res = lintSpec(JSON.parse(read(P.spec)), { facts: read(P.facts), brief: read(P.brief), recent: { looks: [] }, words: loadWords(slug) });
   if (res.errors.length) throw new Error(`spec.json has lint errors:\n- ${res.errors.join('\n- ')}`);
   await prepareAudio(slug);
   const rounds = opts.rounds ?? cfg.maxRounds;
@@ -370,6 +441,6 @@ export const exampleProject = (slug = 'mimo-example') => {
   const spec = JSON.parse(read(P.spec));
   spec.slug = slug;
   writeFileSync(P.spec, JSON.stringify(spec, null, 1));
-  remember(slug, spec.look.preset);
+  remember(slug, spec);
   return P.dir;
 };

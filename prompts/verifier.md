@@ -21,6 +21,12 @@ camera move and may legitimately be blurred).
 
 Ignore: motion blur on flight tiles, depth-of-field blur on cards that are not the focus, the fine print being
 small (it is fine print), anything that cannot be changed through the spec.
+Engine notes (see `engine` in the spec):
+- flythrough: neighbouring cards are blurred/dimmed on purpose; flight tiles pass beside cards.
+- poster: dimmed neighbour panels, the red route line and the panel numbers/labels are engine design.
+- kinetic: no cards by design. Each scene contains a coloured circle ("portal") with a tiny preview of the next
+  scene — intended. Judge the giant type: is it cut off by the frame, does it collide with the portal circle, is it
+  readable on a phone in portrait?
 
 # FIXES
 Each issue gets a concrete `fix` and, whenever possible, a `patch` = JSON-Patch ops against the spec

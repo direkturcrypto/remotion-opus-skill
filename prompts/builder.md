@@ -24,8 +24,8 @@ Reply with the JSON object only. No markdown, no comments, no explanation.
 7. Every cue (`at`, `from`, `to`, `cutAt`, `goAt`, `logoAt`, `scanFrom`, `scanTo`, `doneAt`, `kickerAt`,
    `revealAt`) has the form `"<lineId>"` or `"<lineId>:<word>"` where <word> is a word (or the start of a word)
    that is literally SPOKEN in that line's `text`. Pick distinctive words. Beats must be in time order.
-8. `look.preset` must NOT be one of the RECENT LOOKS listed in the user message. Pick the preset whose mood fits
-   the product (see LOOKS). Do not reuse the example's preset or its wording.
+8. Follow the CONCEPT in the user message exactly for `engine`, `path`, `look` and `archetype`, and follow its
+   beat outline, hook and CTA (you may refine wording). Do not fall back to a generic launch template.
 9. The last beat is a `lockup`. The first beat is a `hero` (product/model launch) or `headline` (campaign/idea),
    with `"at": "<first line id>"`.
 10. Reveals must land before the camera leaves: the camera departs ~0.45 s before the next beat's cue (0.3 s inside
@@ -33,27 +33,23 @@ Reply with the JSON object only. No markdown, no comments, no explanation.
     So never cue a price cut on the LAST word before the next line — cue it on the first verb of the price line.
 11. Respect every max length in the catalog. Short text is a feature: one idea per beat, 1–5 words per label.
 
-# STRUCTURE RECIPE (15 s launch spot)
+# ENGINES — what each visual language needs from you
+- flythrough: cards in 3D. Feature cards can share a `group` (side by side at one station). Price beats like
+  `camera.moves` toward the badge. A `lockup` with "stack": true appears over the previous beat.
+- poster: every beat becomes a numbered panel on an editorial canvas; the engine adds the panel numbers/labels and
+  the route line. Groups sit side by side. Fewer, bolder beats read best (5–6).
+- kinetic: no cards — every beat is a full-screen typographic scene. Keep on-screen text SHORT and punchy (it is
+  set 150–250 px tall): headline words ≤ 3 per line, labels 1–2 words, at most 4 code lines of ≤ 26 chars,
+  agents ≤ 3 items. Don't use `group` (each beat is its own scene). `camera` fields are ignored.
 
-  m01 hook  → hero (camera.open = "closeup" on the badge, revealAt = the kicker word)
-  m02 what  → 2–3 feature cards in one `group` (stat / vision / code / checklist / chat), one per spoken phrase
-  m03 why   → price (cut on "dipangkas/turun/hemat", badge on the % word) OR bars (benchmarks) OR chat (demo)
-  m04 CTA   → agents or headline (the punchline), then a `lockup` with "stack": true on the brand word
-Variations are welcome when the brief asks for it (e.g. no price → bars or checklist), but keep 5–8 beats.
-
-# LOOKS (art direction presets)
-- graphite-studio: bright off-white 3D studio, dark graphite UI cards, orange→red. Confident product launch.
-- midnight-glass: deep navy night space, frosted glass cards, cyan→violet. Futuristic / AI / developer tools.
-- paper-ink: warm paper, white cards with thick ink border + hard offset shadow, red. Bold editorial, playful.
-- aurora-soft: pastel pink→lilac→sky gradient, soft white cards, pink→violet. Friendly consumer, lifestyle.
-- mono-lab: crisp white lab with blue grid, outlined white cards, blue→cyan. Precise, technical, trustworthy.
-- ember-noir: black with ember-orange floor glow, dark cards, amber→orange. Dramatic, premium, power features.
-`look.accent` (two hex colours) / `look.hot` (number colour) may override the palette to match a brand.
-
-# PATHS (camera journey)
-- dolly: straight forward fly-through (default, safest).
-- serpentine: stations alternate left/right — more lateral energy.
-- staircase: the camera climbs — "levelling up" stories.
+# ARCHETYPE RECIPES (pick the one in the CONCEPT)
+- launch: hero (name revealed on the words that say it) → 2–3 capability beats → price/bars proof → CTA → lockup
+- problem-solution: headline (the pain, in the viewer's words) → stat/checklist/chat making it worse → hero (the
+  product as the answer) → price or checklist payoff → lockup
+- versus: headline ("Resmi vs <brand>") → price (cut on the comparison verb) or bars → headline verdict → lockup
+- demo: hero or headline → chat / code / checklist showing it work (cue each step on its spoken word) → result → lockup
+- reasons: headline ("<n> alasan …") → one beat per reason (checklist, stat, price…) → lockup
+- one-number: headline teaser → stat or price building the single number → headline that says what it means → lockup
 
 # WIDGET CATALOG (field: limit — guidance)
 
@@ -95,7 +91,8 @@ lockup — brand end card
 # TOP-LEVEL
 { "version": 1, "slug", "title", "language": "id"|"en", "fps": 60, "holdSec": 2.2,
   "brand": { "name", "url", "mark": "vikey"|"monogram", "color"? },
-  "look": { "preset", "accent"?, "hot"? }, "path": "dolly"|"serpentine"|"staircase",
+  "engine": "flythrough"|"poster"|"kinetic", "archetype", "path" (valid for the engine),
+  "look": { "preset", "accent"?, "hot"? },
   "vo": { "voiceId"?, "tempo": 1.1–1.14, "lines": [{ "id": "m01", "text", "tts", "caption" }] },
   "beats": [...], "facts": [{ "text", "source" }] (copy the facts you used) }
 `vo.voiceId`: omit for Indonesian (default narrator "Cahaya"); English → "XrExE9yKIg1WjnnlVkGX" (Matilda, US)
@@ -110,6 +107,10 @@ or "Xb7hH8MSUJpSbSDYk0k2" (Alice, UK).
 - CTA line ends with the brand: "<verb> <object>, pakai <Brand>!"
 - Every beat must SHOW what the VO SAYS at that moment (that's why cues exist).
 
-# REFERENCE (a finished spec that rendered well — learn the density and the cue discipline; do NOT copy its
-# look, wording or structure blindly)
-{{EXAMPLE}}
+# SKELETON (shape only — every value below is a placeholder; write fresh copy from the brief and concept)
+{"version":1,"slug":"<slug>","title":"<title>","language":"id","fps":60,"holdSec":2.2,
+ "brand":{"name":"<Brand>","url":"<brand.url>","mark":"monogram","color":"#RRGGBB"},
+ "engine":"<from concept>","archetype":"<from concept>","path":"<from concept>","look":{"preset":"<from concept>"},
+ "vo":{"tempo":1.12,"lines":[{"id":"m01","text":"<spoken words>","tts":"[excited] <spoken words>","caption":"<shown words>"}]},
+ "beats":[{"id":"<kebab>","at":"m01","widget":{"type":"<widget>"}}],
+ "facts":[{"text":"<fact you used>","source":"<source>"}]}

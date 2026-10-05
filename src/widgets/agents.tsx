@@ -108,6 +108,8 @@ export const lockup = (w: z.infer<typeof Lockup>, ctx: Ctx): WidgetOut => {
   const markSize = P ? 132 : 140;
   const wmSize = fitSize(w.wordmark, f.disp, f.dispWeight, P ? 112 : 128, cw - 160 - markSize - 34, f.dispTrack);
   const brandRed = ctx.spec.brand.color ?? L.accent[1];
+  // chips sit on the lockup card, so their contrast follows the card, not the world
+  const lockupBgIsLight = /^#(?:[0-3])/i.test(L.lockup.fg);
   const node = (t: number) => {
     if (t < appear) return null;
     const inP = pop(t, appear + 2, 5);
@@ -127,7 +129,7 @@ export const lockup = (w: z.infer<typeof Lockup>, ctx: Ctx): WidgetOut => {
           <div style={{ display: 'flex', flexDirection: P ? 'column' : 'row', alignItems: 'center', gap: 18, opacity: chips, transform: `translateY(${((1 - chips) * 20).toFixed(1)}px)` }}>
             {w.chips.map((c, i) =>
               c.style === 'dark' ? (
-                <div key={i} style={{ flex: 'none', whiteSpace: 'nowrap', background: L.dark ? 'rgba(255,255,255,0.1)' : '#111214', color: '#FFFFFF', fontFamily: f.mono, fontSize: P ? 32 : 30, padding: '16px 28px', borderRadius: 999 }}>{c.text}</div>
+                <div key={i} style={{ flex: 'none', whiteSpace: 'nowrap', background: L.lockup.fg, color: lockupBgIsLight ? '#FFFFFF' : '#111214', fontFamily: f.mono, fontSize: P ? 32 : 30, padding: '16px 28px', borderRadius: 999 }}>{c.text}</div>
               ) : (
                 <div key={i} style={{ flex: 'none', whiteSpace: 'nowrap', background: grad(L), color: '#FFFFFF', fontFamily: f.ui, fontWeight: 700, fontSize: P ? 38 : 34, padding: '14px 30px', borderRadius: 999 }}>{c.text}</div>
               ),

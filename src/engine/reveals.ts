@@ -1,7 +1,7 @@
 // When is a beat "readable"? Each cue starts an animation that needs time to land (an odometer rolls ~40 frames,
 // a pop ~8). Used by the linter (the camera must not leave before the viewer can read it) and by the review frame
 // picker (Opus must judge the settled frame, not a mid-roll one).
-import type { Beat, Spec } from '../src/spec/schema';
+import type { Beat, Spec } from '../spec/schema';
 
 const SETTLE: Record<string, number> = { cutAt: 46, goAt: 30, to: 16, scanTo: 18, doneAt: 22, from: 10, scanFrom: 10, logoAt: 30, kickerAt: 10, at: 10 };
 

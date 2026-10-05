@@ -1,6 +1,6 @@
 ---
 name: remotion-opus
-description: "Make premium 15-second launch / promo videos (landscape 1920x1080 + portrait 1080x1920, Remotion) with cheap models on the Vikey API. A builder model (GLM-5.3 Flash or DeepSeek V4 Flash) writes a JSON spec, a fixed Opus-designed motion engine renders it, and Claude Opus 5.5 reviews rendered frames until the video passes. Use for model/product launches, price-drop announcements and feature promos."
+description: "Make premium 15-second launch / promo videos (landscape 1920x1080 + portrait 1080x1920, Remotion) with a few cheap API calls instead of an expensive agent loop. Opus 5.5 (via the Vikey API) picks a fresh concept, writes a JSON spec and reviews rendered frames; a fixed motion engine with three visual languages (3D fly-through, editorial poster, kinetic type) renders it. Use for model/product launches, price-drop announcements and feature promos."
 version: 0.1.0
 author: direkturcrypto
 license: MIT
@@ -15,8 +15,10 @@ prerequisites:
 # remotion-opus — Opus-grade launch videos from cheap models
 
 You drive the `ros` CLI from https://github.com/direkturcrypto/remotion-opus-skill. You never write React or
-animation code for a video: the engine already owns camera, depth-of-field, kinetic type, easing, captions, SFX and
-both aspect ratios. Quality comes from three things you control: **the brief, the facts, and following the loop.**
+animation code for a video: the engine owns camera, typography, easing, captions, SFX and both aspect ratios, and a
+creative-director step makes every film look different from the last ones. Quality comes from three things you
+control: **the brief, the facts, and following the loop.** Keep your own token use low: don't read the engine source
+or the rendered images unless something fails — run the commands and read the short reports.
 
 ## 0. Setup (once)
 
@@ -53,13 +55,14 @@ A good brief names: the product, the audience/angle, the single takeaway, the ex
 ## 3. Run the loop
 
 ```bash
-ros run <slug>     # plan (builder) → audio → review rounds (stills → Opus verify → fix) → render
+ros run <slug>     # concept → plan → audio → review rounds (stills → Opus verify → fix) → render
 ```
 
 Or step by step when you want control:
 
 ```bash
-ros plan <slug>      # builder writes projects/<slug>/spec.json (auto-retries until the linter passes)
+ros concept <slug>   # director picks engine/path/look/archetype/angle → concept.json (differs from recent films)
+ros plan <slug>      # builder writes projects/<slug>/spec.json from the concept (retries until the linter passes)
 ros lint <slug>      # schema + facts + cue + pacing + look-variety checks
 ros audio <slug>     # ElevenLabs eleven_v4 VO (+ STT word timings) and music; SFX always
 ros review <slug>    # up to MAX_ROUNDS of stills → Opus review → patch/fix
@@ -87,8 +90,8 @@ spoken in VO line m02 (use words from the spoken `text`, not the caption).
 
 - Don't edit `src/engine` or `src/widgets` to fix one video — fix the spec. Engine changes are for everyone and
   need a full re-test of `ros example` + `ros render mimo-example`.
-- Don't reuse the previous video's `look.preset` (enforced) or its wording — consecutive videos must not look
-  like reskins.
+- Variety is enforced: the concept may not reuse the last film's engine or the last two looks
+  (`projects/.history.json`). If the user wants a specific style, put it in the brief ("pakai gaya poster").
 - Portrait and landscape always ship together.
 - If the review keeps failing on the same issue after 3 rounds, stop and report the issue + the contact sheet
   to the user instead of looping.

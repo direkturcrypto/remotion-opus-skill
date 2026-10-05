@@ -1,15 +1,22 @@
 # remotion-opus-skill
 
-**Opus-grade launch videos from cheap models.** A CLI + agent skill that lets a fast, cheap model
-(`glm/glm-5.3-flash`, `deepseek/deepseek-v4-flash`) produce premium 15-second promo videos in Remotion — landscape
-1920×1080 and portrait 1080×1920 from one timeline — with `anthropic/claude-opus-5.5` used only as a vision
-reviewer. Everything runs on the [Vikey](https://vikey.ai) OpenAI-compatible API (`https://api.vikey.ai/v1`).
+**Opus-grade launch videos for agents, at a fraction of the tokens.** An agent like Hermes that builds a Remotion
+video by itself reads files, writes thousands of lines and iterates — very expensive. With this CLI the agent runs one
+command; the tool makes a few small, structured API calls (creative concept → JSON spec → frame review) and a fixed,
+Opus-designed engine does the rest. Output: premium 15-second promo videos, landscape 1920×1080 + portrait 1080×1920
+from one timeline. Runs on the [Vikey](https://vikey.ai) OpenAI-compatible API (`https://api.vikey.ai/v1`).
+
+Default models: `anthropic/claude-opus-5.5` for concept, spec and review. Set `BUILDER_MODEL` to
+`glm/glm-5.3-flash` or `deepseek/deepseek-v4-flash` to make the spec-writing step cheaper (more lint retries).
 
 ```
-brief.md + facts.md
+brief.md + facts.md + history of recent films
       │
       ▼
- ros plan ──► builder model (GLM-5.3 Flash) writes spec.json ──► linter (schema, facts, cues, pacing, variety)
+ ros concept ► director (Opus 5.5) picks engine + path + look + story archetype + angle — different from recent films
+      │
+      ▼
+ ros plan ──► builder model writes spec.json ──► linter (schema, facts, cues, pacing, variety)
       │                                   ▲                              │ errors go back to the builder
       ▼                                   └──────────────────────────────┘
  ros audio ──► ElevenLabs eleven_v4 VO (multi-take, STT-checked) + word timings, music, synthesized SFX
@@ -36,9 +43,18 @@ Cheap models are bad at motion design but fine at filling in a form. So they nev
   that TTS mangles, over-long VO, reused looks, and copy lifted from the reference.
 - **Opus is the art director**: it sees labelled frames from both aspects plus automated QA warnings, and returns
   JSON-Patch fixes. Only frames go to Opus, so a review round costs a few thousand tokens.
-- **Six art directions** (`graphite-studio`, `midnight-glass`, `paper-ink`, `aurora-soft`, `mono-lab`,
-  `ember-noir`) × three camera paths × widget mixes. The last two looks are blocked so consecutive videos don't
-  look like reskins.
+- **Three visual languages, not reskins:**
+  - `flythrough` — UI cards in a 3D space, continuous dolly with arcs and depth-of-field (paths: dolly, serpentine,
+    staircase)
+  - `poster` — flat editorial canvas, numbered panels with ink borders + hard shadows, a route line drawn panel to
+    panel, 2D whip-pans with directional blur, pull-out to the whole poster before the end card (paths: zigzag, strip)
+  - `kinetic` — no cards: giant type on full-bleed colour fields; each scene holds a colour "portal" the camera zooms
+    through into the next scene (paths: zoom, turns)
+  × six looks (`graphite-studio`, `midnight-glass`, `paper-ink`, `aurora-soft`, `mono-lab`, `ember-noir`)
+  × six story archetypes (launch, problem-solution, versus, demo, reasons, one-number).
+- **A creative director step** (`ros concept`): Opus reads the brief and the history of recent films and picks a
+  combination that is clearly different (it may not repeat the last engine or the last two looks). The builder must
+  follow it; the linter enforces it.
 
 ## Quick start
 
@@ -65,7 +81,8 @@ node bin/ros.mjs run my-launch           # → projects/my-launch/out/my-launch-
 | --- | --- |
 | `ros init` / `ros doctor` | setup and health check (keys, models, ffmpeg) |
 | `ros new <slug> --brief "…"` | scaffold `projects/<slug>/brief.md` + `facts.md` |
-| `ros plan <slug>` | builder writes `spec.json`, retrying until the linter passes |
+| `ros concept <slug>` | director picks engine / path / look / archetype / angle → `concept.json` |
+| `ros plan <slug>` | builder writes `spec.json` from the concept, retrying until the linter passes |
 | `ros lint <slug>` | run the linter on a spec you edited |
 | `ros audio <slug> [--only m02] [--force]` | VO (ElevenLabs `eleven_v4`, best of 3 takes by STT match) + music + SFX |
 | `ros stills <slug>` / `ros verify <slug>` / `ros fix <slug>` | one review step at a time |
@@ -80,7 +97,8 @@ node bin/ros.mjs run my-launch           # → projects/my-launch/out/my-launch-
 | --- | --- | --- |
 | `VIKEY_API_KEY` | — | required |
 | `VIKEY_BASE_URL` | `https://api.vikey.ai/v1` | any OpenAI-compatible endpoint works |
-| `BUILDER_MODEL` | `glm/glm-5.3-flash` | or `deepseek/deepseek-v4-flash` |
+| `BUILDER_MODEL` | `anthropic/claude-opus-5.5` | cheaper: `glm/glm-5.3-flash`, `deepseek/deepseek-v4-flash` |
+| `DIRECTOR_MODEL` | = `VERIFIER_MODEL` | picks the concept |
 | `VERIFIER_MODEL` | `anthropic/claude-opus-5.5` | must accept images |
 | `MAX_ROUNDS` | `3` | review rounds |
 | `ELEVENLABS_API_KEY` | — | voice-over + word timing + music |
@@ -107,10 +125,13 @@ launch video — the skill tells it to gather facts first, run the loop, and rea
 ```
 bin/ros.mjs            CLI launcher (tsx, no build step)
 cli/                   pipeline: llm client, linter, audio, render, review loop
-prompts/builder.md     the builder's rules + widget catalog (+ the reference spec is appended)
+prompts/concept.md     the creative director's brief (engines, looks, archetypes, variety rules)
+prompts/builder.md     the builder's rules + widget catalog + archetype recipes
 prompts/verifier.md    Opus' review rubric and JSON output contract
 src/spec/schema.ts     the spec contract (zod) — what a builder may write
-src/engine/            director (layout, camera, arcs, focus), world, timeline, looks, fonts, fit
+src/engines/           FlyThrough, Poster, Kinetic + shared hits/audio/QA
+src/kinetic/           typographic renderers for the kinetic engine
+src/engine/            flythrough director (layout, camera, arcs, focus), world, timeline, looks, fonts, fit
 src/widgets/           hero, stat, vision, code, price, agents, lockup, headline, chat, bars, checklist
 examples/mimo-v2.6-pro reference spec + word timings from a hand-built Vikey launch spot
 projects/<slug>/       your videos (gitignored)

@@ -1,8 +1,8 @@
 // Gate between the builder model and the renderer. Schema errors + semantic rules that encode what makes these
 // videos good (or keeps them honest). Errors go back to the builder verbatim, so they are written as instructions.
-import { LOOK_IDS, Spec, type Words } from '../src/spec/schema';
+import { ENGINE_PATHS, LOOK_IDS, Spec, type Words } from '../src/spec/schema';
 import { buildTimeline, norm } from '../src/engine/timeline';
-import { departure, revealEnd } from './reveals';
+import { departure, revealEnd } from '../src/engine/reveals';
 
 const CUE_KEYS = new Set(['at', 'from', 'to', 'cutAt', 'goAt', 'logoAt', 'scanFrom', 'scanTo', 'doneAt', 'kickerAt', 'revealAt']);
 const NON_VISIBLE = new Set(['at', 'from', 'to', 'cutAt', 'goAt', 'logoAt', 'scanFrom', 'scanTo', 'doneAt', 'kickerAt', 'revealAt', 'type', 'group', 'style', 'scene', 'effect', 'preset', 'path', 'voiceId', 'tts', 'slug', 'lines', 'mark', 'color', 'accent', 'hot', 'source']);
@@ -36,7 +36,10 @@ const walk = (o: unknown, fn: (k: string, v: unknown, path: string) => void, p =
 
 export type LintResult = { spec?: Spec; errors: string[]; warnings: string[] };
 
-export const lintSpec = (raw: unknown, ctx: { facts: string; brief: string; recentLooks: string[]; reference?: unknown; words?: Words | null }): LintResult => {
+export type Recent = { looks: string[]; engine?: string; archetype?: string };
+type ConceptLite = { engine: string; path: string; look: { preset: string }; archetype: string };
+
+export const lintSpec = (raw: unknown, ctx: { facts: string; brief: string; recent: Recent; concept?: ConceptLite | null; reference?: unknown; words?: Words | null }): LintResult => {
   const errors: string[] = [];
   const warnings: string[] = [];
   const parsed = Spec.safeParse(raw);
@@ -146,8 +149,23 @@ export const lintSpec = (raw: unknown, ctx: { facts: string; brief: string; rece
     if (same.length > 4) errors.push(`${same.length} texts are copied verbatim from the reference spec (${same.slice(0, 8).map((x) => `"${x}"`).join(', ')}) — write fresh copy that fits THIS brief (new chips, code lines, tasks, detections, status line)`);
   }
 
-  // variety across videos
-  if (ctx.recentLooks.includes(spec.look.preset)) errors.push(`look.preset "${spec.look.preset}" was used in a recent video — pick one of: ${LOOK_IDS.filter((l) => !ctx.recentLooks.includes(l)).join(', ')}`);
+  // variety across videos + the creative director's concept
+  if (ctx.recent.looks.includes(spec.look.preset)) errors.push(`look.preset "${spec.look.preset}" was used in a recent video — pick one of: ${LOOK_IDS.filter((l) => !ctx.recent.looks.includes(l)).join(', ')}`);
+  if (!(ENGINE_PATHS[spec.engine] as readonly string[]).includes(spec.path)) errors.push(`path "${spec.path}" does not exist in the ${spec.engine} engine — use ${ENGINE_PATHS[spec.engine].join(' or ')}`);
+  if (ctx.concept) {
+    const c = ctx.concept;
+    if (spec.engine !== c.engine) errors.push(`engine must be "${c.engine}" (concept)`);
+    if (spec.path !== c.path) errors.push(`path must be "${c.path}" (concept)`);
+    if (spec.look.preset !== c.look.preset) errors.push(`look.preset must be "${c.look.preset}" (concept)`);
+    if (spec.archetype !== c.archetype) errors.push(`archetype must be "${c.archetype}" (concept)`);
+  }
+  if (spec.engine === 'kinetic') {
+    spec.beats.forEach((b, i) => {
+      if (b.group) warnings.push(`beats[${i}].group is ignored by the kinetic engine (every beat is its own scene)`);
+      if (b.widget.type === 'code' && b.widget.lines.some((l) => l.length > 28)) errors.push(`beats[${i}]: kinetic sets code huge — keep code lines ≤ 28 chars`);
+      if (b.widget.type === 'agents' && b.widget.items.length > 3) errors.push(`beats[${i}]: kinetic agents list: max 3 items`);
+    });
+  }
 
   tl.warnings.forEach((w) => warnings.push(w));
   return { spec, errors, warnings };

@@ -2,7 +2,7 @@
 import React from 'react';
 import type { z } from 'zod';
 import { Card, Chars, Head, gradText } from '../engine/atoms';
-import { fitSize } from '../engine/fit';
+import { fitSize, textW } from '../engine/fit';
 import { grad, GREEN } from '../engine/looks';
 import type { Ctx, WidgetOut } from '../engine/types';
 import { pop, prog, typed } from '../engine/util';
@@ -76,7 +76,7 @@ export const bars = (w: z.infer<typeof Bars>, ctx: Ctx): WidgetOut => {
   const node = (t: number) => (
     <Card ctx={ctx} w={cw} h={ch} pad={pad}>
       <Head ctx={ctx} icon="bars" label={w.title.toUpperCase()} right={w.unit ? <span style={{ fontFamily: f.mono, fontSize: 20, color: ctx.look.card.muted }}>{w.unit}</span> : undefined} size={P ? 24 : 20} />
-      <div style={{ marginTop: P ? 50 : 40, display: 'flex', flexDirection: 'column', gap: P ? 34 : 26 }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: (P ? 24 : 20) * 2.1, bottom: w.finePrint ? 40 : 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: P ? 34 : 26 }}>
         {w.items.map((it, i) => {
           const p = prog(t, from + i * 6, from + i * 6 + 28);
           return (
@@ -98,14 +98,17 @@ export const bars = (w: z.infer<typeof Bars>, ctx: Ctx): WidgetOut => {
 
 export const checklist = (w: z.infer<typeof Checklist>, ctx: Ctx): WidgetOut => {
   const P = ctx.P;
-  const [cw, ch] = P ? [940, 820] : [960, 640];
   const pad = P ? 50 : 52;
   const f = ctx.f;
+  // the card hugs its content: width from the longest item (measured), height from the item count
+  const itemW = Math.max(...w.items.map((it) => textW(it.text, f.ui, 600, P ? 38 : 36)));
+  const cw = P ? 940 : Math.round(Math.max(640, Math.min(960, itemW + 54 + 22 + pad * 2 + 30)));
+  const ch = Math.round(Math.max(P ? 560 : 440, (P ? 24 : 20) * 2.1 + w.items.length * ((P ? 38 : 36) * 1.5 + (P ? 34 : 26)) + pad * 2 + 70));
   const ats = w.items.map((i) => ctx.cue(i.at));
   const node = (t: number) => (
     <Card ctx={ctx} w={cw} h={ch} pad={pad}>
       <Head ctx={ctx} icon="check" label={w.title.toUpperCase()} size={P ? 24 : 20} />
-      <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: P ? 30 : 22 }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: (P ? 24 : 20) * 2.1, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: P ? 34 : 26 }}>
         {w.items.map((it, i) => {
           const p = pop(t, ats[i], 4);
           const on = t >= ats[i];

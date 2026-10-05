@@ -6,7 +6,7 @@ import { ensureSfxAssets } from './audio';
 import { cfg } from './env';
 import { lintSpec } from './lint';
 import { ROOT, proj } from './paths';
-import { exampleProject, fix, latestRound, loadSpec, loadWords, plan, prepareAudio, recentLooks, renderFinal, renderStills, run, usageSummary, verify, type Review } from './pipeline';
+import { concept, exampleProject, fix, latestRound, loadSpec, loadWords, plan, prepareAudio, recentFor, renderFinal, renderStills, run, usageSummary, verify, type Review } from './pipeline';
 import type { AspectId } from './render';
 
 const HELP = `ros — Opus-grade Remotion launch videos from cheap models (Vikey API)
@@ -14,7 +14,8 @@ const HELP = `ros — Opus-grade Remotion launch videos from cheap models (Vikey
   ros init                      create .env, synthesize SFX, check tools
   ros doctor                    check keys, models, ffmpeg
   ros new <slug> [--brief "…"]  scaffold projects/<slug>/ (brief.md + facts.md)
-  ros plan <slug>               builder model (${cfg.builder}) writes spec.json
+  ros concept <slug>            director (${cfg.director}) picks engine/look/story, different from recent films
+  ros plan <slug>               builder model (${cfg.builder}) writes spec.json from the concept
   ros lint <slug>               validate spec.json (schema + facts + cues + pacing)
   ros audio <slug> [--only m02] voice-over + music (ElevenLabs) + SFX
   ros stills <slug>             render review frames → projects/<slug>/review/round-N/
@@ -81,13 +82,17 @@ const main = async () => {
       console.log(`✓ ${path.relative(process.cwd(), P.dir)}/brief.md + facts.md — fill them in, then \`ros run ${s}\``);
       return;
     }
+    case 'concept':
+      await concept(needSlug());
+      return;
     case 'plan':
       await plan(needSlug());
       return;
     case 'lint': {
       const P = proj(needSlug());
       const read = (p: string) => (existsSync(p) ? readFileSync(p, 'utf8') : '');
-      const res = lintSpec(JSON.parse(read(P.spec)), { facts: read(P.facts), brief: read(P.brief), recentLooks: recentLooks(slug), words: loadWords(slug) });
+      const conceptPath = P.concept;
+      const res = lintSpec(JSON.parse(read(P.spec)), { facts: read(P.facts), brief: read(P.brief), recent: recentFor(slug), concept: existsSync(conceptPath) ? JSON.parse(read(conceptPath)) : null, words: loadWords(slug) });
       res.errors.forEach((e) => console.log(`✗ ${e}`));
       res.warnings.forEach((w) => console.log(`⚠ ${w}`));
       if (!res.errors.length) console.log('✓ spec is valid');

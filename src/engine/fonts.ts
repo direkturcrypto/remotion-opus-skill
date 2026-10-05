@@ -20,53 +20,89 @@ import { loadFont as archivoBlack } from '@remotion/google-fonts/ArchivoBlack';
 import { loadFont as interTight } from '@remotion/google-fonts/InterTight';
 import { loadFont as dmMono } from '@remotion/google-fonts/DMMono';
 
-export type Fonts = { disp: string; ui: string; mono: string; dispWeight: number; dispTrack: number };
+export type Fonts = { disp: string; ui: string; mono: string; dispWeight: number; dispTrack: number; wait: () => Promise<void> };
 export type FontPairId = 'unbounded' | 'sora' | 'bricolage' | 'syne' | 'space' | 'archivo';
 
 const L = { subsets: ['latin'] as ['latin'] };
 const PAIRS: Record<FontPairId, () => Fonts> = {
-  unbounded: () => ({
-    disp: unbounded('normal', { weights: ['500', '700'], ...L }).fontFamily,
-    ui: onest('normal', { weights: ['400', '500', '600', '700'], ...L }).fontFamily,
-    mono: azeret('normal', { weights: ['400', '500', '600'], ...L }).fontFamily,
-    dispWeight: 700,
-    dispTrack: -0.045,
-  }),
-  sora: () => ({
-    disp: sora('normal', { weights: ['500', '700'], ...L }).fontFamily,
-    ui: inter('normal', { weights: ['400', '500', '600', '700'], ...L }).fontFamily,
-    mono: jetbrains('normal', { weights: ['400', '500', '600'], ...L }).fontFamily,
-    dispWeight: 700,
-    dispTrack: -0.04,
-  }),
-  bricolage: () => ({
-    disp: bricolage('normal', { weights: ['500', '800'], ...L }).fontFamily,
-    ui: geist('normal', { weights: ['400', '500', '600', '700'], ...L }).fontFamily,
-    mono: geistMono('normal', { weights: ['400', '500', '600'], ...L }).fontFamily,
-    dispWeight: 800,
-    dispTrack: -0.05,
-  }),
-  syne: () => ({
-    disp: syne('normal', { weights: ['500', '800'], ...L }).fontFamily,
-    ui: hanken('normal', { weights: ['400', '500', '600', '700'], ...L }).fontFamily,
-    mono: fragment('normal', { weights: ['400'], ...L }).fontFamily,
-    dispWeight: 800,
-    dispTrack: -0.03,
-  }),
-  space: () => ({
-    disp: spaceG('normal', { weights: ['500', '700'], ...L }).fontFamily,
-    ui: manrope('normal', { weights: ['400', '500', '600', '700'], ...L }).fontFamily,
-    mono: plexMono('normal', { weights: ['400', '500', '600'], ...L }).fontFamily,
-    dispWeight: 700,
-    dispTrack: -0.045,
-  }),
-  archivo: () => ({
-    disp: archivoBlack('normal', { weights: ['400'], ...L }).fontFamily,
-    ui: interTight('normal', { weights: ['400', '500', '600', '700'], ...L }).fontFamily,
-    mono: dmMono('normal', { weights: ['400', '500'], ...L }).fontFamily,
-    dispWeight: 400,
-    dispTrack: -0.035,
-  }),
+  unbounded: () => {
+    const disp = unbounded('normal', { weights: ['500', '700'], ...L });
+    const ui = onest('normal', { weights: ['400', '500', '600', '700'], ...L });
+    const mono = azeret('normal', { weights: ['400', '500', '600'], ...L });
+    return {
+      disp: disp.fontFamily,
+      ui: ui.fontFamily,
+      mono: mono.fontFamily,
+      dispWeight: 700,
+      dispTrack: -0.045,
+      wait: () => Promise.all([disp.waitUntilDone(), ui.waitUntilDone(), mono.waitUntilDone()]).then(() => undefined),
+    };
+  },
+  sora: () => {
+    const disp = sora('normal', { weights: ['500', '700'], ...L });
+    const ui = inter('normal', { weights: ['400', '500', '600', '700'], ...L });
+    const mono = jetbrains('normal', { weights: ['400', '500', '600'], ...L });
+    return {
+      disp: disp.fontFamily,
+      ui: ui.fontFamily,
+      mono: mono.fontFamily,
+      dispWeight: 700,
+      dispTrack: -0.04,
+      wait: () => Promise.all([disp.waitUntilDone(), ui.waitUntilDone(), mono.waitUntilDone()]).then(() => undefined),
+    };
+  },
+  bricolage: () => {
+    const disp = bricolage('normal', { weights: ['500', '800'], ...L });
+    const ui = geist('normal', { weights: ['400', '500', '600', '700'], ...L });
+    const mono = geistMono('normal', { weights: ['400', '500', '600'], ...L });
+    return {
+      disp: disp.fontFamily,
+      ui: ui.fontFamily,
+      mono: mono.fontFamily,
+      dispWeight: 800,
+      dispTrack: -0.05,
+      wait: () => Promise.all([disp.waitUntilDone(), ui.waitUntilDone(), mono.waitUntilDone()]).then(() => undefined),
+    };
+  },
+  syne: () => {
+    const disp = syne('normal', { weights: ['500', '800'], ...L });
+    const ui = hanken('normal', { weights: ['400', '500', '600', '700'], ...L });
+    const mono = fragment('normal', { weights: ['400'], ...L });
+    return {
+      disp: disp.fontFamily,
+      ui: ui.fontFamily,
+      mono: mono.fontFamily,
+      dispWeight: 800,
+      dispTrack: -0.03,
+      wait: () => Promise.all([disp.waitUntilDone(), ui.waitUntilDone(), mono.waitUntilDone()]).then(() => undefined),
+    };
+  },
+  space: () => {
+    const disp = spaceG('normal', { weights: ['500', '700'], ...L });
+    const ui = manrope('normal', { weights: ['400', '500', '600', '700'], ...L });
+    const mono = plexMono('normal', { weights: ['400', '500', '600'], ...L });
+    return {
+      disp: disp.fontFamily,
+      ui: ui.fontFamily,
+      mono: mono.fontFamily,
+      dispWeight: 700,
+      dispTrack: -0.045,
+      wait: () => Promise.all([disp.waitUntilDone(), ui.waitUntilDone(), mono.waitUntilDone()]).then(() => undefined),
+    };
+  },
+  archivo: () => {
+    const disp = archivoBlack('normal', { weights: ['400'], ...L });
+    const ui = interTight('normal', { weights: ['400', '500', '600', '700'], ...L });
+    const mono = dmMono('normal', { weights: ['400', '500'], ...L });
+    return {
+      disp: disp.fontFamily,
+      ui: ui.fontFamily,
+      mono: mono.fontFamily,
+      dispWeight: 400,
+      dispTrack: -0.035,
+      wait: () => Promise.all([disp.waitUntilDone(), ui.waitUntilDone(), mono.waitUntilDone()]).then(() => undefined),
+    };
+  },
 };
 
 const cache = new Map<FontPairId, Fonts>();
@@ -75,18 +111,21 @@ export const fontsFor = (id: FontPairId): Fonts => {
   return cache.get(id)!;
 };
 
-let ready = false;
-/** Holds the render until webfonts are in, so text measurement (fit.ts) sees real metrics. */
-export const useFontsReady = () => {
-  const [ok, setOk] = useState(ready);
-  const [handle] = useState(() => (ready ? null : delayRender('webfonts')));
+const ready = new Set<Fonts>();
+/** Holds the render until THIS pair's webfonts are downloaded and registered. (document.fonts.ready is not enough:
+ *  Remotion adds a FontFace to document.fonts only after it loads, so ready resolves early and measurements lie.) */
+export const useFontsReady = (f: Fonts) => {
+  const [ok, setOk] = useState(ready.has(f));
+  const [handle] = useState(() => (ready.has(f) ? null : delayRender('webfonts')));
   useEffect(() => {
     if (ok || handle === null) return;
-    document.fonts.ready.then(() => {
-      ready = true;
-      setOk(true);
-      continueRender(handle);
-    });
-  }, [ok, handle]);
+    f.wait()
+      .then(() => document.fonts.ready)
+      .then(() => {
+        ready.add(f);
+        setOk(true);
+        continueRender(handle);
+      });
+  }, [ok, handle, f]);
   return ok;
 };

@@ -105,6 +105,8 @@ export const buildPlan = (spec: Spec, tl: Timeline, aspect: Aspect): Plan => {
     let z = members.length > 1 ? (P ? 1.0 : 0.98) : P ? Math.max(bw / (A.W * 0.9), bh / (A.H * 0.7)) : Math.max(bw / (A.W * 0.82), bh / (A.H * 0.84));
     if (stacked) z = zoom[i - 1] * 1.14;
     z *= b.camera?.zoom ?? 1;
+    // a zoom from the spec may push in, but never crop the card
+    z = Math.max(z, members.length > 1 ? 0 : Math.max(bw / (A.W * 0.94), bh / (A.H * (P ? 0.8 : 0.9))));
     zoom.push(z);
   });
 
