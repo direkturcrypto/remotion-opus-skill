@@ -205,10 +205,11 @@ export const Captions: React.FC<{ A: AspectCfg; tl: Timeline; look: Look; ui: st
           const on = t >= w.at - 2;
           const cur = on && (i + 1 >= cap.words.length || t < cap.words[i + 1].at - 2);
           return (
-            <span key={i} style={{ opacity: on ? 1 : 0.32, color: cur ? look.caption.hot : look.caption.fg }}>
-              {w.text}
+            <React.Fragment key={i}>
+              {/* nowrap keeps a URL from splitting at its hyphen; the space stays outside so lines can still wrap */}
+              <span style={{ opacity: on ? 1 : 0.32, color: cur ? look.caption.hot : look.caption.fg, whiteSpace: 'nowrap' }}>{w.text}</span>
               {i < cap.words.length - 1 ? ' ' : ''}
-            </span>
+            </React.Fragment>
           );
         })}
       </div>
