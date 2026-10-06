@@ -12,7 +12,8 @@ const KEEP_IMAGE_MESSAGES = 2;
 
 /** older renders are replaced by a placeholder so the context doesn't balloon with pictures */
 const pruneImages = (messages: Msg[]) => {
-  const withImages = messages.map((m, i) => (Array.isArray(m.content) && m.content.some((p) => p.type === 'image_url') ? i : -1)).filter((i) => i >= 0);
+  // keep reference images (they arrive with a task: text first, refs labelled REF) — prune only renders
+  const withImages = messages.map((m, i) => (Array.isArray(m.content) && m.content.some((p) => p.type === 'image_url') && !m.content.some((p) => p.type === 'text' && p.text.startsWith('REF')) ? i : -1)).filter((i) => i >= 0);
   for (const i of withImages.slice(0, -KEEP_IMAGE_MESSAGES)) {
     const parts = messages[i].content as Part[];
     messages[i].content = parts.map((p) => (p.type === 'image_url' ? ({ type: 'text', text: '[earlier render removed to save context — render again if you need it]' } as Part) : p));
@@ -33,12 +34,20 @@ export const costRp = (model: string, u: { prompt_tokens?: number; completion_to
   return ((((u.prompt_tokens ?? 0) - cached) * p.in + cached * p.cached + (u.completion_tokens ?? 0) * p.out) / 1e6);
 };
 
-export const runAgent = async (o: { model: string; system: string; task: string; tools: AgentTool[]; dir: string; usageFile: string; maxSteps: number; tag: string; budgetRp?: number }) => {
+export const runAgent = async (oIn: { model: string; system: string; task: string; taskImages?: { label: string; file: string }[]; tools: AgentTool[]; dir: string; usageFile: string; maxSteps: number; tag: string; budgetRp?: number }) => {
+  let o = oIn;
   mkdirSync(o.dir, { recursive: true });
   const sessionFile = path.join(o.dir, 'session.json');
   const logFile = path.join(o.dir, 'log.md');
-  const messages: Msg[] = existsSync(sessionFile) ? JSON.parse(readFileSync(sessionFile, 'utf8')) : [{ role: 'system', content: o.system }];
-  messages.push({ role: 'user', content: o.task });
+  const resumed = existsSync(sessionFile);
+  const messages: Msg[] = resumed ? JSON.parse(readFileSync(sessionFile, 'utf8')) : [{ role: 'system', content: o.system }];
+  // a resumed build continues where it stopped instead of receiving the whole task again
+  if (resumed && o.tag === 'build') o = { ...o, task: 'Continue building the film from where you stopped (your previous run was interrupted). Use `list_files` to see what exists, then carry on — at most 3 files per reply.', taskImages: [] };
+  const refParts: Part[] = (o.taskImages ?? []).flatMap((img) => [
+    { type: 'text', text: img.label } as Part,
+    { type: 'image_url', image_url: { url: `data:image/${img.file.endsWith('.png') ? 'png' : 'jpeg'};base64,${readFileSync(img.file).toString('base64')}` } } as Part,
+  ]);
+  messages.push({ role: 'user', content: refParts.length ? [{ type: 'text', text: o.task }, ...refParts] : o.task });
   appendFileSync(logFile, `\n## ${o.tag} — ${new Date().toISOString()}\n\n${short(o.task, 400)}\n\n`);
   const specs: ToolSpec[] = o.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } }));
   let nudges = 0;
@@ -52,6 +61,10 @@ export const runAgent = async (o: { model: string; system: string; task: string;
     const { text, toolCalls, usage } = await chat({ model: o.model, messages, tools: specs, temperature: 0.6, usageFile: o.usageFile, tag: `${o.tag} ${step}` });
     spent += costRp(o.model, usage);
     messages.push({ role: 'assistant', content: text || null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) });
+    if (/stream budget|without producing a reply/i.test(text)) {
+      messages[messages.length - 1].content = null; // drop the gateway's notice from the history
+      messages.push({ role: 'user', content: 'Your last reply was cut off by the API time limit (≈10 minutes per reply). Work in smaller replies: plan briefly, then write at most 3 files per reply.' });
+    }
     if (text.trim()) {
       console.log(`  ${o.tag} ${step}: ${short(text, 140)}`);
       appendFileSync(logFile, `**${step}** ${text.trim()}\n\n`);
@@ -67,9 +80,15 @@ export const runAgent = async (o: { model: string; system: string; task: string;
     for (const c of toolCalls) {
       const tool = o.tools.find((t) => t.name === c.function.name);
       let res: ToolResult;
+      let args: Record<string, unknown> | null = null;
       try {
-        const args = c.function.arguments ? JSON.parse(c.function.arguments) : {};
-        res = tool ? await tool.run(args) : { text: `unknown tool "${c.function.name}"` };
+        args = c.function.arguments ? JSON.parse(c.function.arguments) : {};
+      } catch {
+        // the reply was cut off mid tool call (the gateway stops one reply after 10 minutes): keep history valid
+        c.function.arguments = '{}';
+      }
+      try {
+        res = args === null ? { text: 'This tool call was cut off before it finished — the API stops a single reply after about 10 minutes. Nothing was written. Send smaller replies: at most 3 files per reply.' } : tool ? await tool.run(args) : { text: `unknown tool "${c.function.name}"` };
       } catch (e) {
         res = { text: `tool error: ${e instanceof Error ? e.message : String(e)}` };
       }

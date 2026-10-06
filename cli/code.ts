@@ -13,6 +13,7 @@ import { factNumbers, numTokens } from './lint';
 import { askedDuration, budgetLine, targetDuration } from './target';
 import { chat, parseJson, type Msg, type Part } from './llm';
 import { runAgent, type AgentTool } from './agent';
+import { requireBalance } from './balance';
 import { PROJECTS, ROOT, mustExist, proj } from './paths';
 import { diffScan, latestRound, recentFilms, type Film, type Review } from './pipeline';
 import { forgetBundle, media, stills, type AspectId } from './render';
@@ -57,7 +58,9 @@ export const codeConcept = async (slug: string) => {
     `RECENT FILMS (oldest → newest):\n${films.length ? films.map((f) => `- ${f.slug}: ${f.engine === 'code' ? `metaphor "${f.metaphor}", world "${f.world}"` : `engine ${f.engine ?? 'flythrough'}, look ${f.look}`}${f.angle ? `, angle "${f.angle}"` : ''}`).join('\n') : '(none)'}`,
     'Return the concept JSON.',
   ].join('\n\n');
-  const { text } = await chat({ model: cfg.director, messages: [{ role: 'system', content: promptFile('concept-code.md').replace('{{STYLES}}', promptFile('styles.md')) }, { role: 'user', content: user }], temperature: 1, usageFile: F.usage, tag: 'code-concept' });
+  const refs = refImages(slug);
+  const userContent = refs.length ? [{ type: 'text' as const, text: user }, ...refs.flatMap((r) => [{ type: 'text' as const, text: r.label }, { type: 'image_url' as const, image_url: { url: `data:image/${r.file.endsWith('.png') ? 'png' : 'jpeg'};base64,${readFileSync(r.file).toString('base64')}` } }])] : user;
+  const { text } = await chat({ model: cfg.director, messages: [{ role: 'system', content: promptFile('concept-code.md').replace('{{STYLES}}', promptFile('styles.md')) }, { role: 'user', content: userContent }], temperature: 1, usageFile: F.usage, tag: 'code-concept' });
   const c = parseJson<CodeConcept>(text);
   writeFileSync(F.concept, JSON.stringify(c, null, 1));
   rememberCode(slug, c);
@@ -244,6 +247,15 @@ const context = (slug: string) => {
   return [`BRIEF:\n${read(F.brief)}`, `FACTS (the only numbers/claims allowed on screen):\n${read(F.facts)}`, `CONCEPT:\n${read(F.concept)}`, `BRAND: ${JSON.stringify(loadScript(slug).brand)}`].join('\n\n');
 };
 
+/** reference screenshots the client supplied: projects/<slug>/refs/*.png|jpg — UI to remake faithfully */
+const refImages = (slug: string) => {
+  const dir = path.join(files(slug).dir, 'refs');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /\.(png|jpe?g)$/i.test(f))
+    .map((f) => ({ label: `REF ${f} — real product UI from the client. Remake it faithfully (layout, copy, colours) where the film shows this UI.`, file: path.join(dir, f) }));
+};
+
 const keyFrames = (slug: string) => {
   const s = loadScript(slug);
   const tl = buildTimeline(s, loadWords(slug));
@@ -370,7 +382,7 @@ export const writeScene = async (slug: string, maxSteps = Number(process.env.AGE
   const F = files(slug);
   log(`▸ scene agent (${cfg.builder}) — builds step by step, renders and looks at its own frames`);
   mkdirSync(F.sceneDir, { recursive: true });
-  const r = await runAgent({ model: cfg.builder, system: agentSystem(), task: `${context(slug)}\n\nBuild the film in scene/. Start with \`timing\`.`, tools: sceneTools(slug, { n: 1 }), dir: F.agent, usageFile: F.usage, maxSteps, tag: 'build', budgetRp: Number(process.env.AGENT_BUDGET_RP ?? 30000) });
+  const r = await runAgent({ model: cfg.builder, system: agentSystem(), task: `${context(slug)}\n\nBuild the film in scene/. Start with \`timing\`.`, taskImages: refImages(slug), tools: sceneTools(slug, { n: 1 }), dir: F.agent, usageFile: F.usage, maxSteps, tag: 'build', budgetRp: Number(process.env.AGENT_BUDGET_RP ?? 30000) });
   log(`  ${r.done ? '✓' : '⚠'} agent ${r.done ? 'finished' : 'stopped'} after ${r.steps} steps (≈Rp${Math.round(r.spent).toLocaleString('id-ID')}) — ${r.summary.slice(0, 200)}`);
   const errs = checkScene(slug);
   if (errs.length) throw new Error(`scene still has problems:\n- ${errs.join('\n- ')}`);
@@ -465,6 +477,7 @@ export const codeRender = async (slug: string, aspects: AspectId[] = ['landscape
 
 export const runCode = async (slug: string, opts: { rounds?: number; skipRender?: boolean } = {}) => {
   const F = files(slug);
+  await requireBalance(existsSync(F.scene) ? 8000 : Number(process.env.AGENT_BUDGET_RP ?? 30000) + 6000, 'a code-mode run');
   if (!existsSync(F.concept) || !JSON.parse(read(F.concept)).metaphor) await codeConcept(slug);
   if (!existsSync(F.script)) await codeScript(slug);
   await codeAudio(slug);

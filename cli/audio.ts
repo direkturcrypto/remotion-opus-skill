@@ -85,7 +85,7 @@ export const makeVo = async (spec: Pick<Spec, 'vo' | 'language' | 'brand'>, voDi
   const brand = n(spec.brand.name);
   /** fraction of spoken words (≥3 letters, not number words) that STT heard back; brand must be heard */
   // phonetic key: STT spells a correctly spoken "Vikey" as Viki / Vikey / Viqi, but a wrong "Vai-ki" stays different
-  const phon = (x: string) => n(x).replace(/ey$/, 'i').replace(/y/g, 'i').replace(/q/g, 'k').replace(/c(?=[aou])/g, 'k').replace(/ph/g, 'f');
+  const phon = (x: string) => n(x).replace(/ck/g, 'k').replace(/ey$/, 'i').replace(/y/g, 'i').replace(/q/g, 'k').replace(/c(?=[aou])/g, 'k').replace(/ph/g, 'f');
   const score = (expected: string, heard: string) => {
     const want = expected.split(/\s+/).map(n).filter((w) => w.length >= 3 && !NUMW.test(w));
     const got = heard.split(/\s+/).map(n).filter(Boolean);

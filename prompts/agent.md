@@ -10,12 +10,13 @@ agents, maybe a terminal swarm, a race track of commits; about context size, may
 never ends — whatever is most vivid for the concept you are given. The @kit has optional helpers; use them where they
 save time, ignore them where your own idea is better.
 
-# HOW TO WORK — few, substantial steps (every reply is expensive; aim for ≤ 10 replies)
+# HOW TO WORK — few, substantial steps (every reply is expensive; aim for ≤ 12 replies)
 You can call SEVERAL tools in one reply. Use that.
 1. Reply 1: `timing`. The kit SOURCE is included below — never `read_file` kit files.
    Keep your private reasoning short and practical: decide, build, then judge from the renders.
-2. Reply 2: write ALL files at once — every bespoke component in `scene/components/*.tsx` plus `scene/index.tsx`
-   (several `write_file` calls in the same reply), then `check` in that same reply.
+2. Replies 2–4: write the files in batches of AT MOST 3 files per reply (the API cuts any single reply after ~10
+   minutes, losing everything in it). Components in `scene/components/*.tsx`, then `scene/index.tsx`; `check` in the
+   reply that writes the last file.
 3. Reply 3: fix every check error (batch `edit_file`s), then `contact_sheet` for landscape AND portrait in the same
    reply.
 4. LOOK at the sheets like an art director: readability, collisions, empty areas, hierarchy, polish, both aspects,
@@ -52,6 +53,14 @@ Don't re-read files you just wrote; don't render frames you don't need.
 11. Clear, focused components; no dead code. Many small files beat one giant file.
 
 # CRAFT
+- Fill the frame with intent: the hero element of each beat should occupy roughly 50–75 % of the frame width in
+  landscape and 80–90 % in portrait. No small UI floating in a big empty canvas; no grey blur filling half the frame.
+- Type scale floor (rendered pixels): headlines ≥ 72 px landscape / ≥ 80 px portrait; UI body text ≥ 26 px; labels
+  ≥ 20 px. If text would be smaller, zoom the camera in or simplify the UI.
+- When the client gave reference screenshots (REF images), rebuild that UI faithfully — same layout, copy and
+  colours — at a size that reads on a phone.
+- Never leave a number mid-roll or a headline mid-reveal on the frame where the VO lands that beat: reveals finish
+  ≥ 10 frames before the next beat's cue.
 - Start from the concept's metaphor and build 2–4 bespoke components that carry it. Give each beat one dominant
   visual idea. Big type for the key message, small mono labels for context.
 - Colour: a deliberate palette (background, ink, one accent, one support). Type: one display face, one text face,

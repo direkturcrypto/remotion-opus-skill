@@ -8,6 +8,7 @@ import { lintSpec } from './lint';
 import { ROOT, proj } from './paths';
 import { checkScene, codeRender, runCode, writeScene } from './code';
 import { setDuration } from './target';
+import { getBalance } from './balance';
 import { concept, exampleProject, fix, latestRound, loadSpec, loadWords, plan, prepareAudio, recentFor, renderFinal, renderStills, run, usageSummary, verify, type Review } from './pipeline';
 import type { AspectId } from './render';
 
@@ -29,6 +30,7 @@ const HELP = `ros — Opus-grade Remotion launch videos from cheap models (Vikey
   ros code-scene|code-check|code-render <slug>   code-mode steps
   ros example                   copy the reference MiMo spec into projects/mimo-example
   ros usage <slug>              token usage per model
+  ros balance                   Vikey balance (free check)
 `;
 
 const args = process.argv.slice(2);
@@ -157,6 +159,11 @@ const main = async () => {
     case 'example':
       console.log(`✓ ${exampleProject(slug || 'mimo-example')} — try \`ros render ${slug || 'mimo-example'}\``);
       return;
+    case 'balance': {
+      const b = await getBalance();
+      console.log(b === null ? 'could not read the balance' : `Vikey balance: Rp${Math.round(b).toLocaleString('id-ID')}`);
+      return;
+    }
     case 'usage':
       console.log(usageSummary(needSlug()) || 'no usage logged yet');
       return;
