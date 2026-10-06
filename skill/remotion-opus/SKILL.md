@@ -1,7 +1,7 @@
 ---
 name: remotion-opus
-description: "Make premium 15-second launch / promo videos (landscape 1920x1080 + portrait 1080x1920, Remotion) with a few cheap API calls instead of an expensive agent loop. Opus 5.5 (via the Vikey API) picks a fresh concept, writes a JSON spec and reviews rendered frames; a fixed motion engine with three visual languages (3D fly-through, editorial poster, kinetic type) renders it. Use for model/product launches, price-drop announcements and feature promos."
-version: 0.1.0
+description: "Make premium launch / promo videos (any length; landscape 1920x1080 + portrait 1080x1920, Remotion) with a few API calls instead of an expensive agent loop. Opus 5.5 (via the Vikey API) picks a fresh concept, writes the voice-over and reviews rendered frames. Spec mode fills fixed motion engines (3D fly-through, editorial poster, kinetic type); code mode lets an Opus agent write a bespoke scene with its own components. Use for model/product launches, price announcements, feature promos and UI-motion explainers."
+version: 0.2.0
 author: direkturcrypto
 license: MIT
 platforms: [macos, linux]

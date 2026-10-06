@@ -135,13 +135,16 @@ node bin/ros.mjs run my-launch           # → projects/my-launch/out/my-launch-
 
 ## For agents
 
-`skill/remotion-opus/SKILL.md` is a standard agent skill (Hermes / Claude Code / agentskills.io format).
+`skill/remotion-opus/SKILL.md` is a standard agent skill (Hermes / Claude Code / agentskills.io format), listed on
+[skills.sh](https://skills.sh/direkturcrypto/remotion-opus-skill/skill/remotion-opus).
 
 ```bash
 # Hermes
+hermes skills install direkturcrypto/remotion-opus-skill/skill/remotion-opus
+# Claude Code, Codex, Cursor and other agents (skills.sh)
+npx skills add direkturcrypto/remotion-opus-skill
+# or copy it by hand
 mkdir -p ~/.hermes/skills/creative && cp -r skill/remotion-opus ~/.hermes/skills/creative/
-# Claude Code (project or user level)
-mkdir -p ~/.claude/skills && cp -r skill/remotion-opus ~/.claude/skills/
 ```
 
 Point your agent at Vikey (`base_url https://api.vikey.ai/v1`, any model), give it the repo path, and ask for a
