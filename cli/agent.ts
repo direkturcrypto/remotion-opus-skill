@@ -41,6 +41,15 @@ export const runAgent = async (oIn: { model: string; system: string; task: strin
   const logFile = path.join(o.dir, 'log.md');
   const resumed = existsSync(sessionFile);
   const messages: Msg[] = resumed ? JSON.parse(readFileSync(sessionFile, 'utf8')) : [{ role: 'system', content: o.system }];
+  // a session saved mid-cut can hold half-written tool arguments; the API rejects invalid JSON in history
+  for (const m of messages)
+    for (const c of m.tool_calls ?? []) {
+      try {
+        JSON.parse(c.function.arguments || '{}');
+      } catch {
+        c.function.arguments = '{}';
+      }
+    }
   // a resumed build continues where it stopped instead of receiving the whole task again
   if (resumed && o.tag === 'build') o = { ...o, task: 'Continue building the film from where you stopped (your previous run was interrupted). Use `list_files` to see what exists, then carry on — at most 3 files per reply.', taskImages: [] };
   const refParts: Part[] = (o.taskImages ?? []).flatMap((img) => [

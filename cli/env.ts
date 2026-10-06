@@ -1,3 +1,4 @@
+import './dns';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { ROOT } from './paths';
