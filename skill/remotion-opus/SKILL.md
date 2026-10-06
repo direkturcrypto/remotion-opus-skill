@@ -1,7 +1,7 @@
 ---
 name: remotion-opus
 description: "Make premium launch / promo videos (any length; landscape 1920x1080 + portrait 1080x1920, Remotion) with a few API calls instead of an expensive agent loop. Opus 5.5 (via the Vikey API) picks a fresh concept, writes the voice-over and reviews rendered frames. Spec mode fills fixed motion engines (3D fly-through, editorial poster, kinetic type); code mode lets an Opus agent write a bespoke scene with its own components. Use for model/product launches, price announcements, feature promos and UI-motion explainers."
-version: 0.2.0
+version: 0.2.1
 author: direkturcrypto
 license: MIT
 platforms: [macos, linux]
@@ -21,6 +21,17 @@ control: **the brief, the facts, and following the loop.** Keep your own token u
 or the rendered images unless something fails — run the commands and read the short reports.
 
 ## 0. Setup (once)
+
+**Installed from a chat?** Users often just send "install skill ini https://github.com/direkturcrypto/remotion-opus-skill"
+in Hermes Desktop or Telegram and expect you to do the rest. Then, in that same conversation:
+
+1. Install the skill if it isn't yet: `hermes skills install direkturcrypto/remotion-opus-skill/skill/remotion-opus --yes`
+   (other agents: `npx skills add direkturcrypto/remotion-opus-skill -y`). Report the security-scan verdict.
+2. Clone the repo, `npm install`, `node bin/ros.mjs init` (commands below). Check node, npm, git, ffmpeg.
+3. Ask the user, in plain words, for what is missing: their **Vikey API key** (required — vikey.ai dashboard) and an
+   **ElevenLabs API key** (optional — only for the voice-over and music). Suggest a dedicated key for the agent.
+4. When they reply, write the keys into `.env` yourself. Never echo a key back in chat or into logs.
+5. Run `node bin/ros.mjs doctor` and tell them it's ready, then offer to make the first video in this same chat.
 
 ```bash
 git clone https://github.com/direkturcrypto/remotion-opus-skill.git && cd remotion-opus-skill
